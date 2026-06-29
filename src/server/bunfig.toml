@@ -1,0 +1,3 @@
+[test]
+# Global test teardown: close shared DB/Redis singletons after the run.
+preload = ["./src/test-setup.ts"]

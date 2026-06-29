@@ -1,0 +1,1 @@
+ALTER TABLE "finance_forecast_ledger_entries" ADD COLUMN "sequence" integer DEFAULT 0 NOT NULL;

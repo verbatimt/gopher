@@ -1,2 +1,50 @@
+# --- Local-only planning & reference material (not versioned) ---
 .reference/
 .planning/
+
+# --- Secrets / local environment ---
+.env
+.env.*
+!.env.example
+*.local
+
+# --- Bun / Node (server) ---
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.bun/
+# bun.lock / bun.lockb are committed intentionally for reproducible installs.
+
+# --- Flutter / Dart (client) ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+**/doc/api/
+*.iml
+*.ipr
+*.iws
+.idea/
+src/client/build/
+# Generated platform ephemeral
+**/android/.gradle/
+**/android/local.properties
+**/ios/Flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+**/windows/flutter/ephemeral/
+
+# --- Docker artifacts ---
+*.tar
+*.tar.gz
+*.tar.zst
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*~

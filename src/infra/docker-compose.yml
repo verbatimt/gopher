@@ -1,0 +1,80 @@
+# Gopher — local stack. Models the eventual server.local topology.
+# Services use in-network aliases (gopher-db / gopher-redis / gopher-api) so connection
+# strings are portable to the production deployment (EP-0041). Postgres and Redis are
+# NOT published to the host by default; only the API maps a host port for local testing.
+#
+# Variable substitution reads src/infra/.env (see .env.example). Sensible defaults are
+# provided so the stack also comes up with no .env present (dev convenience only).
+
+name: gopher
+
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gopher}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gopher_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-gopher}
+    volumes:
+      # Postgres 18+ images expect the mount at /var/lib/postgresql (data is placed in a
+      # major-version subdirectory); mounting at .../data crash-loops on init.
+      - gopher_pgdata:/var/lib/postgresql
+    networks:
+      gopher_net:
+        aliases: [gopher-db]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gopher} -d ${POSTGRES_DB:-gopher}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - gopher_redisdata:/data
+    networks:
+      gopher_net:
+        aliases: [gopher-redis]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  api:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-gopher}:${POSTGRES_PASSWORD:-gopher_dev_pw}@gopher-db:5432/${POSTGRES_DB:-gopher}
+      REDIS_URL: redis://gopher-redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev_only_change_me_to_a_long_random_string}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    ports:
+      # Only the API is published to the host (for local testing).
+      - "${API_PORT:-3000}:3000"
+    networks:
+      gopher_net:
+        aliases: [gopher-api]
+
+networks:
+  gopher_net:
+    driver: bridge
+
+volumes:
+  gopher_pgdata:
+  gopher_redisdata:

@@ -1,0 +1,17 @@
+# Keep the build context lean and the image free of host/local artifacts.
+node_modules
+dist
+build
+coverage
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db
+# Test files are not needed in the runtime image.
+**/*.test.ts
+**/__tests__

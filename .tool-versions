@@ -1,0 +1,4 @@
+# Toolchain pins (single source of truth; mirrored in docs/development.md).
+# `bun` matches the runtime image used in EP-0003 (oven/bun:<this>-alpine).
+bun 1.3.10
+flutter stable

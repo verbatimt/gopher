@@ -1,0 +1,25 @@
+# Dev ergonomics overlay (watch + live source + host-published DB/Redis for tests).
+# Auto-loaded by `docker compose` when run from this directory with no explicit -f.
+# The base file alone keeps DB/Redis unpublished and runs the built image; this overlay
+# is for local development and integration tests only.
+#
+# Usage:  cd src/infra && docker compose up        # base + this overlay
+# CI/prod-shape validation uses `-f docker-compose.yml` explicitly (excludes this overlay).
+
+services:
+  postgres:
+    # Publish to host so integration tests (run from the host) can reach the DB.
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  api:
+    environment:
+      NODE_ENV: development
+    # Live-reload the API on source changes; node_modules stays from the image.
+    volumes:
+      - ../server/src:/app/src:ro
+    command: ["bun", "--watch", "src/index.ts"]

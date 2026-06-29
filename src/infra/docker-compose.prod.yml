@@ -1,0 +1,125 @@
+# Gopher — production compose for server.local (ARM64, plain HTTP, LAN-only).
+# ─────────────────────────────────────────────────────────────────────────────
+# Network: reuses the host's single shared LAN macvlan. Docker allows only one
+# macvlan per parent interface (eth0), which is already occupied by
+# `everyapp_macvlan` (shared by the other apps on this host). Per EP-0041 §7(c)
+# Gopher reuses that shared macvlan with its OWN reserved IPs + MACs rather than
+# creating a second macvlan on the same parent. See docs/deployment-guide.md.
+#
+#   gopher.local        192.168.50.53  MAC 02:EA:C0:A8:32:35  (Flutter web / nginx)
+#   gopher-api.local    192.168.50.54  MAC 02:EA:C0:A8:32:36  (Bun + Elysia API)
+#   gopher-db.local     192.168.50.55  MAC 02:EA:C0:A8:32:37  (Postgres 18)
+#   gopher-redis.local  192.168.50.56  MAC 02:EA:C0:A8:32:38  (Redis 7)
+#
+# The internal bridge `gopher_internal` carries DB/Redis↔API and nginx→API
+# traffic off the LAN. The browser loads the UI from gopher.local and its
+# /api + /ws calls are proxied to the API (same-origin; first-party cookie).
+# ─────────────────────────────────────────────────────────────────────────────
+name: gopher
+
+networks:
+  everyapp_macvlan:
+    external: true
+  gopher_internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  gopher_pg_data:
+  gopher_redis_data:
+
+services:
+  gopher_db:
+    image: postgres:18
+    container_name: gopher_db
+    hostname: gopher-db
+    mac_address: "02:EA:C0:A8:32:37"
+    restart: unless-stopped
+    networks:
+      everyapp_macvlan:
+        ipv4_address: 192.168.50.55
+      gopher_internal:
+        aliases: [gopher-db, db]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gopher}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-gopher}
+    volumes:
+      - gopher_pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gopher} -d ${POSTGRES_DB:-gopher}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  gopher_redis:
+    image: redis:7-alpine
+    container_name: gopher_redis
+    hostname: gopher-redis
+    mac_address: "02:EA:C0:A8:32:38"
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    networks:
+      everyapp_macvlan:
+        ipv4_address: 192.168.50.56
+      gopher_internal:
+        aliases: [gopher-redis, redis]
+    volumes:
+      - gopher_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  gopher_api:
+    image: gopher-api:latest
+    container_name: gopher_api
+    hostname: gopher-api
+    mac_address: "02:EA:C0:A8:32:36"
+    restart: unless-stopped
+    networks:
+      everyapp_macvlan:
+        ipv4_address: 192.168.50.54
+      gopher_internal:
+        aliases: [gopher-api, api]
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER:-gopher}:${POSTGRES_PASSWORD:?required}@gopher-db:5432/${POSTGRES_DB:-gopher}
+      REDIS_URL: redis://gopher-redis:6379
+      JWT_SECRET: ${JWT_SECRET:?required}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    depends_on:
+      gopher_db:
+        condition: service_healthy
+      gopher_redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  gopher_web:
+    image: gopher-web:latest
+    container_name: gopher_web
+    hostname: gopher
+    mac_address: "02:EA:C0:A8:32:35"
+    restart: unless-stopped
+    networks:
+      everyapp_macvlan:
+        ipv4_address: 192.168.50.53
+      gopher_internal:
+        aliases: [gopher-web, web]
+    depends_on:
+      - gopher_api
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:80/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
