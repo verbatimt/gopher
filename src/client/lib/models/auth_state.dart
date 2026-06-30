@@ -32,4 +32,18 @@ class RoleNames {
   static const supervising = 'supervising_user';
   static const unsupervised = 'unsupervised_user';
   static const supervised = 'supervised_user';
+
+  /// Friendly, user-facing label for a role name (falls back to the raw value).
+  static String label(String role) {
+    switch (role) {
+      case supervising:
+        return 'Supervisor';
+      case unsupervised:
+        return 'Member';
+      case supervised:
+        return 'Supervised';
+      default:
+        return role;
+    }
+  }
 }

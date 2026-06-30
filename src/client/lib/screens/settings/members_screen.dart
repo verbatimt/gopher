@@ -161,10 +161,19 @@ class _MembersScreenState extends State<MembersScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: role,
                   decoration: const InputDecoration(labelText: 'Role'),
-                  items: const [
-                    DropdownMenuItem(value: RoleNames.unsupervised, child: Text('Member')),
-                    DropdownMenuItem(value: RoleNames.supervising, child: Text('Supervisor')),
-                    DropdownMenuItem(value: RoleNames.supervised, child: Text('Supervised')),
+                  items: [
+                    DropdownMenuItem(
+                      value: RoleNames.unsupervised,
+                      child: Text(RoleNames.label(RoleNames.unsupervised)),
+                    ),
+                    DropdownMenuItem(
+                      value: RoleNames.supervising,
+                      child: Text(RoleNames.label(RoleNames.supervising)),
+                    ),
+                    DropdownMenuItem(
+                      value: RoleNames.supervised,
+                      child: Text(RoleNames.label(RoleNames.supervised)),
+                    ),
                   ],
                   onChanged: (v) => setLocal(() => role = v ?? RoleNames.unsupervised),
                 ),
@@ -231,28 +240,36 @@ class _MemberTile extends StatelessWidget {
     return ListTile(
       leading: MemberAvatar(name: member.displayName),
       title: Text(member.displayName),
-      subtitle: Text(member.isOwner ? 'Owner · ${member.role}' : member.role),
+      subtitle: Text(
+        member.isOwner
+            ? 'Owner · ${RoleNames.label(member.role)}'
+            : RoleNames.label(member.role),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           StatusBadge(label, tone: tone),
           if (isSupervisor && !member.isOwner)
             PopupMenuButton<String>(
+              key: ValueKey('member-menu-${member.id}'),
+              tooltip: 'Manage member',
               onSelected: (action) {
-                if (action == 'claim') {
+                if (action == 'role') {
+                  _changeRole(context, household);
+                } else if (action == 'claim') {
                   _sendClaimInvite(context, household);
                 } else if (action == 'deactivate') {
-                  household.deactivateMember(member.id);
-                } else {
-                  household.changeMemberRole(member.id, action);
+                  _deactivate(context, household);
                 }
               },
               itemBuilder: (menuContext) => [
+                const PopupMenuItem(
+                  value: 'role',
+                  key: ValueKey('change-role'),
+                  child: Text('Change role…'),
+                ),
                 if (member.claimable)
                   const PopupMenuItem(value: 'claim', child: Text('Send claim invite')),
-                const PopupMenuItem(value: RoleNames.supervising, child: Text('Make supervisor')),
-                const PopupMenuItem(value: RoleNames.unsupervised, child: Text('Make member')),
-                const PopupMenuItem(value: RoleNames.supervised, child: Text('Make supervised')),
                 const PopupMenuItem(value: 'deactivate', child: Text('Deactivate')),
               ],
             ),
@@ -285,10 +302,19 @@ class _MemberTile extends StatelessWidget {
                 DropdownButtonFormField<String>(
                   initialValue: role,
                   decoration: const InputDecoration(labelText: 'Role'),
-                  items: const [
-                    DropdownMenuItem(value: RoleNames.unsupervised, child: Text('Member')),
-                    DropdownMenuItem(value: RoleNames.supervising, child: Text('Supervisor')),
-                    DropdownMenuItem(value: RoleNames.supervised, child: Text('Supervised')),
+                  items: [
+                    DropdownMenuItem(
+                      value: RoleNames.unsupervised,
+                      child: Text(RoleNames.label(RoleNames.unsupervised)),
+                    ),
+                    DropdownMenuItem(
+                      value: RoleNames.supervising,
+                      child: Text(RoleNames.label(RoleNames.supervising)),
+                    ),
+                    DropdownMenuItem(
+                      value: RoleNames.supervised,
+                      child: Text(RoleNames.label(RoleNames.supervised)),
+                    ),
                   ],
                   onChanged: (v) => setLocal(() => role = v ?? member.role),
                 ),
@@ -333,6 +359,102 @@ class _MemberTile extends StatelessWidget {
         actions: [
           FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Done')),
         ],
+      ),
+    );
+  }
+
+  /// Explicit "Change role" affordance: shows the current role, lets a supervisor pick a new
+  /// one, and surfaces success/failure (e.g. the last-supervisor invariant) via a SnackBar.
+  Future<void> _changeRole(BuildContext context, HouseholdProvider household) async {
+    final messenger = ScaffoldMessenger.of(context);
+    var selected = member.role;
+    final chosen = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('Change role — ${member.displayName}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Current role: ${RoleNames.label(member.role)}'),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                key: const ValueKey('change-role-dropdown'),
+                initialValue: selected,
+                decoration: const InputDecoration(labelText: 'New role'),
+                items: [
+                  DropdownMenuItem(
+                    value: RoleNames.unsupervised,
+                    child: Text(RoleNames.label(RoleNames.unsupervised)),
+                  ),
+                  DropdownMenuItem(
+                    value: RoleNames.supervising,
+                    child: Text(RoleNames.label(RoleNames.supervising)),
+                  ),
+                  DropdownMenuItem(
+                    value: RoleNames.supervised,
+                    child: Text(RoleNames.label(RoleNames.supervised)),
+                  ),
+                ],
+                onChanged: (v) => setLocal(() => selected = v ?? member.role),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, selected),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || chosen == member.role) return;
+    final ok = await household.changeMemberRole(member.id, chosen);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? '${member.displayName} is now ${RoleNames.label(chosen)}'
+              : (household.error ?? "Couldn't change role"),
+        ),
+      ),
+    );
+  }
+
+  /// Confirm and deactivate a member; surfaces the server's reason (e.g. owner cannot be
+  /// removed) when it fails.
+  Future<void> _deactivate(BuildContext context, HouseholdProvider household) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Deactivate member'),
+        content: Text('Remove ${member.displayName} from this household?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Deactivate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final ok = await household.deactivateMember(member.id);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok ? '${member.displayName} deactivated' : (household.error ?? "Couldn't deactivate"),
+        ),
       ),
     );
   }
