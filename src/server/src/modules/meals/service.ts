@@ -4,6 +4,7 @@
 // lightweight per-household checklist, optionally seeded from a plan's meal names.
 
 import { and, asc, eq } from 'drizzle-orm';
+import { effectiveRole } from '../../auth/visibility.ts';
 import { db, withTransaction } from '../../db/index.ts';
 import {
   groceryItems,
@@ -18,6 +19,20 @@ import { ConflictError, InvalidError, NotFoundError } from '../../http/errors.ts
 export interface ActorContext {
   userId: string;
   householdId: string;
+  memberId: string | null;
+  roles: string[];
+}
+
+/** Validate a meal-entry scope: 'personal' requires a member; 'family' (default) clears it. */
+function normalizeScope(
+  scope?: string | null,
+  memberId?: string | null,
+): { scope: string; memberId: string | null } {
+  if ((scope ?? 'family') === 'personal') {
+    if (!memberId) throw new InvalidError('A personal meal requires a member.');
+    return { scope: 'personal', memberId };
+  }
+  return { scope: 'family', memberId: null };
 }
 
 // --- Plans ---
@@ -69,7 +84,15 @@ export async function getPlan(ctx: ActorContext, planId: string) {
     .from(mealPlanEntries)
     .where(eq(mealPlanEntries.mealPlanId, planId))
     .orderBy(asc(mealPlanEntries.dayOfWeek), asc(mealPlanEntries.mealType));
-  return { plan, entries };
+  // Personal meals are private to their member: a non-supervising member (the meals module is
+  // open to supervising + unsupervised) sees only family entries and their own personal ones.
+  // Supervising/system members see everything.
+  const role = effectiveRole(ctx.roles);
+  const seesAll = role === 'supervising' || role === 'system';
+  const visible = seesAll
+    ? entries
+    : entries.filter((e) => e.scope === 'family' || e.memberId === ctx.memberId);
+  return { plan, entries: visible };
 }
 
 // --- Entries ---
@@ -81,6 +104,8 @@ export interface EntryInput {
   notes?: string;
   recipeId?: string | null;
   servings?: number | null;
+  scope?: 'family' | 'personal';
+  memberId?: string | null;
 }
 
 /** Resolve a recipe in the household (active or not — historical refs resolve); returns its
@@ -108,6 +133,8 @@ export async function upsertEntry(ctx: ActorContext, planId: string, input: Entr
   }
   if (!name) throw new InvalidError('A meal name or recipe is required.');
 
+  const { scope, memberId } = normalizeScope(input.scope, input.memberId);
+
   const [row] = await db
     .insert(mealPlanEntries)
     .values({
@@ -118,6 +145,8 @@ export async function upsertEntry(ctx: ActorContext, planId: string, input: Entr
       notes: input.notes ?? null,
       recipeId: input.recipeId ?? null,
       servings: input.servings ?? null,
+      scope,
+      memberId,
     })
     .onConflictDoUpdate({
       target: [mealPlanEntries.mealPlanId, mealPlanEntries.dayOfWeek, mealPlanEntries.mealType],
@@ -126,6 +155,8 @@ export async function upsertEntry(ctx: ActorContext, planId: string, input: Entr
         notes: input.notes ?? null,
         recipeId: input.recipeId ?? null,
         servings: input.servings ?? null,
+        scope,
+        memberId,
         updatedAt: new Date(),
       },
     })
@@ -137,7 +168,14 @@ export async function updateEntry(
   ctx: ActorContext,
   planId: string,
   entryId: string,
-  patch: { mealName?: string; notes?: string; recipeId?: string | null; servings?: number | null },
+  patch: {
+    mealName?: string;
+    notes?: string;
+    recipeId?: string | null;
+    servings?: number | null;
+    scope?: 'family' | 'personal';
+    memberId?: string | null;
+  },
 ) {
   const plan = await loadPlan(ctx.householdId, planId);
   if (!plan) throw new NotFoundError('Meal plan not found.');
@@ -153,6 +191,20 @@ export async function updateEntry(
     }
   }
   if (patch.mealName !== undefined) updates.mealName = patch.mealName;
+  if (patch.scope !== undefined || patch.memberId !== undefined) {
+    const [current] = await db
+      .select()
+      .from(mealPlanEntries)
+      .where(and(eq(mealPlanEntries.id, entryId), eq(mealPlanEntries.mealPlanId, planId)))
+      .limit(1);
+    if (!current) throw new NotFoundError('Meal entry not found.');
+    const norm = normalizeScope(
+      patch.scope ?? current.scope,
+      patch.memberId !== undefined ? patch.memberId : current.memberId,
+    );
+    updates.scope = norm.scope;
+    updates.memberId = norm.memberId;
+  }
 
   const [row] = await db
     .update(mealPlanEntries)
@@ -203,6 +255,8 @@ export async function copyPlan(ctx: ActorContext, sourcePlanId: string, targetWe
           notes: e.notes,
           recipeId: e.recipeId,
           servings: e.servings,
+          scope: e.scope,
+          memberId: e.memberId,
         })),
       );
     }

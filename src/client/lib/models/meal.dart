@@ -12,6 +12,8 @@ class MealEntry {
   final String? notes;
   final String? recipeId; // EP-0046: optional recipe link
   final int? servings;
+  final String scope; // 'family' (default) or 'personal'
+  final String? memberId; // set when scope == 'personal'
 
   const MealEntry({
     required this.id,
@@ -21,7 +23,11 @@ class MealEntry {
     this.notes,
     this.recipeId,
     this.servings,
+    this.scope = 'family',
+    this.memberId,
   });
+
+  bool get isPersonal => scope == 'personal';
 
   factory MealEntry.fromJson(Map<String, dynamic> json) => MealEntry(
         id: json['id'] as String,
@@ -31,6 +37,8 @@ class MealEntry {
         notes: json['notes'] as String?,
         recipeId: json['recipeId'] as String?,
         servings: (json['servings'] as num?)?.toInt(),
+        scope: json['scope'] as String? ?? 'family',
+        memberId: json['memberId'] as String?,
       );
 }
 

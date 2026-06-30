@@ -6,12 +6,14 @@ import 'package:gopher/core/api/api_client.dart';
 import 'package:gopher/core/constants.dart';
 import 'package:gopher/core/storage/in_memory_token_store.dart';
 import 'package:gopher/providers/auth_provider.dart';
+import 'package:gopher/providers/household_provider.dart';
 import 'package:gopher/providers/meal_provider.dart';
 import 'package:gopher/providers/module_provider.dart';
 import 'package:gopher/providers/notification_provider.dart';
 import 'package:gopher/providers/recipe_provider.dart';
 import 'package:gopher/screens/meals/meal_planner_screen.dart';
 import 'package:gopher/services/auth_service.dart';
+import 'package:gopher/services/household_service.dart';
 import 'package:gopher/services/meal_service.dart';
 import 'package:gopher/services/notification_service.dart';
 import 'package:gopher/services/recipe_service.dart';
@@ -154,6 +156,9 @@ void main() {
           ChangeNotifierProvider<NotificationProvider>.value(
             value: NotificationProvider(NotificationService(_client(mealMock))),
           ),
+          ChangeNotifierProvider<HouseholdProvider>.value(
+            value: HouseholdProvider(HouseholdService(_client(mealMock))),
+          ),
         ],
         child: const MaterialApp(home: MealPlannerScreen()),
       ),
@@ -163,5 +168,124 @@ void main() {
     expect(find.text('Sun'), findsOneWidget);
     expect(find.text('Breakfast'), findsWidgets);
     expect(find.textContaining('Week of'), findsOneWidget);
+  });
+
+  Future<void> pumpPlanner(WidgetTester tester, MockClient mock) async {
+    final store = InMemoryTokenStore();
+    final loginMock = MockClient((req) async {
+      if (req.url.path == '/api/v1/auth/login') {
+        return http.Response(
+          _env({
+            'accessToken': _jwt({'householdId': 'h', 'roles': 'supervising_user'}),
+            'user': {'id': 'u', 'email': 'a@b.c', 'displayName': 'Owner'},
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    final auth = AuthProvider(
+      tokenStore: store,
+      authService: AuthService(ApiClient(baseUrl: 'http://t', client: loginMock, tokenStore: store)),
+    );
+    await auth.login('a@b.c', 'pw');
+    final modules = ModuleProvider()..setActive(const [AppModules.meals]);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthProvider>.value(value: auth),
+          ChangeNotifierProvider<ModuleProvider>.value(value: modules),
+          ChangeNotifierProvider<MealProvider>.value(value: MealProvider(MealService(_client(mock)))),
+          ChangeNotifierProvider<RecipeProvider>.value(
+            value: RecipeProvider(RecipeService(_client(mock))),
+          ),
+          ChangeNotifierProvider<NotificationProvider>.value(
+            value: NotificationProvider(NotificationService(_client(mock))),
+          ),
+          ChangeNotifierProvider<HouseholdProvider>.value(
+            value: HouseholdProvider(HouseholdService(_client(mock))),
+          ),
+        ],
+        child: const MaterialApp(home: MealPlannerScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('the slot dialog offers a family/personal choice with a member picker', (tester) async {
+    final mock = MockClient((req) async {
+      final p = req.url.path;
+      if (p == '/api/v1/households/h') {
+        return http.Response(_env({'household': {'id': 'h', 'name': 'Home'}}), 200);
+      }
+      if (p == '/api/v1/households/h/invites') return http.Response(_env({'invites': const []}), 200);
+      if (p == '/api/v1/households/h/meal-plans') return http.Response(_env({'plans': const []}), 200);
+      if (p == '/api/v1/households/h/members') {
+        return http.Response(
+          _env({
+            'members': [
+              {'id': 'm1', 'displayName': 'Kiddo', 'role': 'supervised_user'},
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    await pumpPlanner(tester, mock);
+    // Open the first Breakfast slot's editor.
+    await tester.tap(find.text('Breakfast').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Family'), findsOneWidget);
+    expect(find.text('Personal'), findsOneWidget);
+    // Choosing Personal reveals the member picker.
+    await tester.tap(find.text('Personal'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(DropdownButtonFormField<String>, 'Member'), findsOneWidget);
+  });
+
+  testWidgets('a personal entry shows the member indicator on the grid', (tester) async {
+    final mock = MockClient((req) async {
+      final p = req.url.path;
+      if (p == '/api/v1/households/h') {
+        return http.Response(_env({'household': {'id': 'h', 'name': 'Home'}}), 200);
+      }
+      if (p == '/api/v1/households/h/invites') return http.Response(_env({'invites': const []}), 200);
+      if (p == '/api/v1/households/h/meal-plans') {
+        return http.Response(_env({'plans': [{'id': 'p1', 'weekStartDate': '2024-06-16'}]}), 200);
+      }
+      if (p == '/api/v1/households/h/meal-plans/p1') {
+        return http.Response(
+          _env({
+            'plan': {'id': 'p1', 'weekStartDate': '2024-06-16'},
+            'entries': [
+              {
+                'id': 'e1',
+                'dayOfWeek': 0,
+                'mealType': 'breakfast',
+                'mealName': 'Solo Oats',
+                'scope': 'personal',
+                'memberId': 'm1',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      if (p == '/api/v1/households/h/members') {
+        return http.Response(
+          _env({
+            'members': [
+              {'id': 'm1', 'displayName': 'Kiddo', 'role': 'supervised_user'},
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    await pumpPlanner(tester, mock);
+    expect(find.text('Solo Oats'), findsOneWidget);
+    expect(find.text('Kiddo'), findsOneWidget); // personal indicator resolves the member name
   });
 }

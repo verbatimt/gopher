@@ -10,6 +10,7 @@ const mealType = t.Union([
   t.Literal('dinner'),
   t.Literal('snack'),
 ]);
+const mealScope = t.Union([t.Literal('family'), t.Literal('personal')]);
 
 export const createPlanBody = t.Object({ weekStartDate: dateStr });
 
@@ -24,6 +25,9 @@ export const entryBody = t.Object({
   notes: t.Optional(t.String({ maxLength: 1000 })),
   recipeId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
   servings: t.Optional(t.Union([t.Integer({ minimum: 1, maximum: 100 }), t.Null()])),
+  // 'family' (default) or 'personal' for a single member; personal requires memberId.
+  scope: t.Optional(mealScope),
+  memberId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
 });
 
 export const updateEntryBody = t.Object({
@@ -31,6 +35,8 @@ export const updateEntryBody = t.Object({
   notes: t.Optional(t.String({ maxLength: 1000 })),
   recipeId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
   servings: t.Optional(t.Union([t.Integer({ minimum: 1, maximum: 100 }), t.Null()])),
+  scope: t.Optional(mealScope),
+  memberId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
 });
 
 export const seedFromPlanBody = t.Object({ planId: t.String({ format: 'uuid' }) });

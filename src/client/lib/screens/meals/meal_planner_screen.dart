@@ -6,6 +6,7 @@ import '../../core/constants.dart';
 import '../../models/meal.dart';
 import '../../models/nutrition.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/household_provider.dart';
 import '../../providers/meal_provider.dart';
 import '../../providers/recipe_provider.dart';
 import '../../widgets/module_guard.dart';
@@ -36,6 +37,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
     if (auth.householdId.isNotEmpty) {
       context.read<MealProvider>().loadWeek(auth.householdId, _weekStart);
       context.read<RecipeProvider>().load(auth.householdId);
+      context.read<HouseholdProvider>().load(auth.householdId);
     }
   }
 
@@ -197,6 +199,15 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
             const SizedBox(width: 4),
           ],
           Expanded(child: Text(entry?.mealName ?? '—')),
+          if (entry != null && entry.isPersonal) ...[
+            const SizedBox(width: 4),
+            const Icon(Icons.person_outline, size: 14),
+            const SizedBox(width: 2),
+            Text(
+              _memberName(context, entry.memberId),
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
         ],
       ),
       trailing: const Icon(Icons.edit_outlined, size: 18),
@@ -204,53 +215,94 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
     );
   }
 
+  String _memberName(BuildContext context, String? memberId) {
+    if (memberId == null) return 'Personal';
+    for (final m in context.watch<HouseholdProvider>().members) {
+      if (m.id == memberId) return m.displayName;
+    }
+    return 'Personal';
+  }
+
   Future<void> _editSlot(BuildContext context, int day, String type, MealEntry? entry) async {
     final recipes = context.read<RecipeProvider>().recipes;
+    final members = context.read<HouseholdProvider>().members;
     final controller = TextEditingController(text: entry?.recipeId == null ? entry?.mealName ?? '' : '');
     var useRecipe = entry?.recipeId != null;
     String? recipeId = entry?.recipeId;
+    var isPersonal = entry?.isPersonal ?? false;
+    String? memberId = entry?.memberId;
 
     final result = await showDialog<_SlotResult>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
           title: Text('${weekdayNames[day]} · $type'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: false, label: Text('Free text')),
-                  ButtonSegment(value: true, label: Text('Recipe')),
-                ],
-                selected: {useRecipe},
-                onSelectionChanged: (s) => setLocal(() => useRecipe = s.first),
-              ),
-              const SizedBox(height: 12),
-              if (useRecipe)
-                DropdownButtonFormField<String>(
-                  initialValue: recipeId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Recipe'),
-                  items: [
-                    for (final r in recipes) DropdownMenuItem(value: r.id, child: Text(r.name)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Free text')),
+                    ButtonSegment(value: true, label: Text('Recipe')),
                   ],
-                  onChanged: (v) => setLocal(() => recipeId = v),
-                )
-              else
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  decoration: const InputDecoration(labelText: 'Meal'),
+                  selected: {useRecipe},
+                  onSelectionChanged: (s) => setLocal(() => useRecipe = s.first),
                 ),
-            ],
+                const SizedBox(height: 12),
+                if (useRecipe)
+                  DropdownButtonFormField<String>(
+                    initialValue: recipeId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Recipe'),
+                    items: [
+                      for (final r in recipes) DropdownMenuItem(value: r.id, child: Text(r.name)),
+                    ],
+                    onChanged: (v) => setLocal(() => recipeId = v),
+                  )
+                else
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: const InputDecoration(labelText: 'Meal'),
+                  ),
+                const SizedBox(height: 16),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Family')),
+                    ButtonSegment(value: true, label: Text('Personal')),
+                  ],
+                  selected: {isPersonal},
+                  onSelectionChanged: (s) => setLocal(() => isPersonal = s.first),
+                ),
+                if (isPersonal) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: members.any((m) => m.id == memberId) ? memberId : null,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Member'),
+                    items: [
+                      for (final m in members)
+                        DropdownMenuItem(value: m.id, child: Text(m.displayName)),
+                    ],
+                    onChanged: (v) => setLocal(() => memberId = v),
+                  ),
+                ],
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             FilledButton(
               onPressed: () => Navigator.pop(
                 ctx,
-                _SlotResult(useRecipe: useRecipe, recipeId: recipeId, mealName: controller.text.trim()),
+                _SlotResult(
+                  useRecipe: useRecipe,
+                  recipeId: recipeId,
+                  mealName: controller.text.trim(),
+                  scope: isPersonal ? 'personal' : 'family',
+                  memberId: isPersonal ? memberId : null,
+                ),
               ),
               child: const Text('Save'),
             ),
@@ -259,12 +311,21 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
       ),
     );
     if (result == null || !context.mounted) return;
+    if (result.scope == 'personal' && result.memberId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick a member for a personal meal.')),
+      );
+      return;
+    }
+    final meals = context.read<MealProvider>();
     if (result.useRecipe) {
       if (result.recipeId == null) return;
-      await context.read<MealProvider>().setEntry(day, type, '', recipeId: result.recipeId);
+      await meals.setEntry(day, type, '',
+          recipeId: result.recipeId, scope: result.scope, memberId: result.memberId);
     } else {
       if (result.mealName.isEmpty) return;
-      await context.read<MealProvider>().setEntry(day, type, result.mealName);
+      await meals.setEntry(day, type, result.mealName,
+          scope: result.scope, memberId: result.memberId);
     }
   }
 }
@@ -273,6 +334,14 @@ class _SlotResult {
   final bool useRecipe;
   final String? recipeId;
   final String mealName;
+  final String scope;
+  final String? memberId;
 
-  const _SlotResult({required this.useRecipe, this.recipeId, required this.mealName});
+  const _SlotResult({
+    required this.useRecipe,
+    this.recipeId,
+    required this.mealName,
+    required this.scope,
+    this.memberId,
+  });
 }

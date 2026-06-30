@@ -40,6 +40,8 @@ class MealProvider extends BaseProvider {
     String mealName, {
     String? recipeId,
     int? servings,
+    String scope = 'family',
+    String? memberId,
   }) async {
     final h = _householdId;
     if (h == null) return false;
@@ -52,6 +54,8 @@ class MealProvider extends BaseProvider {
             if (mealName.isNotEmpty) 'mealName': mealName,
             'recipeId': recipeId,
             'servings': ?servings,
+            'scope': scope,
+            'memberId': ?memberId,
           });
           _plan = await _service.getPlan(h, plan.id);
           notifyListeners();

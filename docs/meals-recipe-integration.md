@@ -57,6 +57,19 @@ used for grocery derivation (factor `1` when servings are absent). Entries with 
 an unknown recipe, or a recipe without nutrition contribute nothing. Household-scoped; there is
 no per-member breakdown. Per-recipe nutrition columns are defined in `docs/recipes-domain.md`.
 
+## Family vs personal scope
+
+Each `meal_plan_entries` row carries a `scope` (`'family'` default, or `'personal'`) and a
+nullable `member_id`. A personal entry requires a member; a family entry has a null member. The
+planner slot dialog offers a Family/Personal choice (with a member picker when personal) and the
+grid cell shows a person indicator + member name for personal meals.
+
+**Visibility:** reads are member-aware — a **supervised** member sees only family entries and
+their own personal ones; supervising/unsupervised (and system) members see all. The meals
+`actor()` resolves the caller's member id + roles (mirroring medications). **Grocery derivation
+is unchanged** — it still walks every entry (family + personal); the seed is supervisor-triggered
+and the grocery list is household-wide.
+
 ## Invariants preserved (EP-0030)
 
 Unique `(household_id, week_start_date)`; one meal per `(plan, day, meal_type)` slot

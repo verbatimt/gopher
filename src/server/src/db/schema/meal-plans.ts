@@ -5,7 +5,7 @@
 import { sql } from 'drizzle-orm';
 import { check, integer, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 import { baseColumns } from '../_shared.ts';
-import { households } from './households.ts';
+import { householdMembers, households } from './households.ts';
 import { recipes } from './recipes.ts';
 
 export const mealPlans = pgTable(
@@ -36,6 +36,11 @@ export const mealPlanEntries = pgTable(
     // plan; the entry keeps its meal_name snapshot. `servings` scales ingredient derivation.
     recipeId: uuid().references(() => recipes.id, { onDelete: 'set null' }),
     servings: integer(),
+    // Family vs personal scope. 'family' (default) preserves the household-wide behavior;
+    // 'personal' ties the meal to a single member (memberId), who alone sees it among
+    // non-supervisors. Family entries have a null memberId.
+    scope: text().notNull().default('family'),
+    memberId: uuid().references(() => householdMembers.id),
   },
   (t) => [
     check('meal_plan_entries_day_chk', sql`${t.dayOfWeek} between 0 and 6`),
@@ -43,6 +48,7 @@ export const mealPlanEntries = pgTable(
       'meal_plan_entries_type_chk',
       sql`${t.mealType} in ('breakfast','lunch','dinner','snack')`,
     ),
+    check('meal_plan_entries_scope_chk', sql`${t.scope} in ('family','personal')`),
     // One meal per (plan, day, meal type) slot — assigning replaces.
     unique('meal_plan_entries_slot_uq').on(t.mealPlanId, t.dayOfWeek, t.mealType),
   ],

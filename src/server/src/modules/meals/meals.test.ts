@@ -13,8 +13,10 @@ const app = createApp();
 
 const ownerEmail = 'meals-owner@x.test';
 const kidEmail = 'meals-kid@x.test';
+const indieEmail = 'meals-indie@x.test';
 let ownerToken = '';
 let kidToken = '';
+let indieToken = '';
 let householdId = '';
 
 function decodeJwt(tok: string): Record<string, unknown> {
@@ -37,7 +39,7 @@ async function call(method: string, path: string, opts: { body?: unknown; token?
 }
 
 async function cleanup(): Promise<void> {
-  for (const email of [ownerEmail, kidEmail]) {
+  for (const email of [ownerEmail, kidEmail, indieEmail]) {
     const rows = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
     for (const u of rows) {
       const hh = sql`SELECT id FROM households WHERE created_by = ${u.id}`;
@@ -81,6 +83,16 @@ beforeAll(async () => {
     body: { token: invite.body.result.token, password: 'password123', displayName: 'Kid' },
   });
   kidToken = accept.body.result.accessToken;
+
+  // An independent (unsupervised) member: holds meals:read+write and sees the planner.
+  const indieInvite = await call('POST', `/api/v1/households/${householdId}/invites`, {
+    token: ownerToken,
+    body: { email: indieEmail, role: 'unsupervised_user' },
+  });
+  const indieAccept = await call('POST', '/api/v1/auth/accept-invite', {
+    body: { token: indieInvite.body.result.token, password: 'password123', displayName: 'Indie' },
+  });
+  indieToken = indieAccept.body.result.accessToken;
 });
 
 afterAll(async () => {
@@ -161,6 +173,80 @@ describe('meal plans', () => {
       body: { targetWeekStart: '2024-06-30' },
     });
     expect(copyAgain.status).toBe(409);
+  });
+});
+
+describe('meal scope (family vs personal)', () => {
+  it('defaults family, stores personal-for-a-member, and hides others personal from a non-supervising member', async () => {
+    const members = await call('GET', `${base()}/members`, { token: ownerToken });
+    const list = members.body.result.members as Array<{ id: string; displayName: string }>;
+    const ownerMemberId = list.find((m) => m.displayName === 'Owner')!.id;
+    const indieMemberId = list.find((m) => m.displayName === 'Indie')!.id;
+
+    const plan = await call('POST', `${base()}/meal-plans`, {
+      token: ownerToken,
+      body: { weekStartDate: '2024-07-07' },
+    });
+    const planId = plan.body.result.plan.id;
+
+    // Family entry — scope defaults to 'family' (memberId null).
+    const fam = await call('POST', `${base()}/meal-plans/${planId}/entries`, {
+      token: ownerToken,
+      body: { dayOfWeek: 0, mealType: 'breakfast', mealName: 'Family Pancakes' },
+    });
+    expect(fam.body.result.entry.scope).toBe('family');
+    expect(fam.body.result.entry.memberId).toBeNull();
+
+    // Personal entry for the independent member.
+    const indieMeal = await call('POST', `${base()}/meal-plans/${planId}/entries`, {
+      token: ownerToken,
+      body: {
+        dayOfWeek: 1,
+        mealType: 'lunch',
+        mealName: 'Indie Salad',
+        scope: 'personal',
+        memberId: indieMemberId,
+      },
+    });
+    expect(indieMeal.body.result.entry.scope).toBe('personal');
+    expect(indieMeal.body.result.entry.memberId).toBe(indieMemberId);
+
+    // Personal entry for the owner.
+    await call('POST', `${base()}/meal-plans/${planId}/entries`, {
+      token: ownerToken,
+      body: {
+        dayOfWeek: 2,
+        mealType: 'dinner',
+        mealName: 'Owner Steak',
+        scope: 'personal',
+        memberId: ownerMemberId,
+      },
+    });
+
+    // Personal without a member → 422.
+    const bad = await call('POST', `${base()}/meal-plans/${planId}/entries`, {
+      token: ownerToken,
+      body: { dayOfWeek: 3, mealType: 'snack', mealName: 'Nope', scope: 'personal' },
+    });
+    expect(bad.status).toBe(422);
+
+    // Supervisor sees everything.
+    const ownerView = await call('GET', `${base()}/meal-plans/${planId}`, { token: ownerToken });
+    const ownerNames = (ownerView.body.result.entries as Array<{ mealName: string }>).map(
+      (e) => e.mealName,
+    );
+    expect(ownerNames).toContain('Family Pancakes');
+    expect(ownerNames).toContain('Indie Salad');
+    expect(ownerNames).toContain('Owner Steak');
+
+    // The independent member sees family + their own personal, not the owner's personal.
+    const indieView = await call('GET', `${base()}/meal-plans/${planId}`, { token: indieToken });
+    const indieNames = (indieView.body.result.entries as Array<{ mealName: string }>).map(
+      (e) => e.mealName,
+    );
+    expect(indieNames).toContain('Family Pancakes');
+    expect(indieNames).toContain('Indie Salad');
+    expect(indieNames).not.toContain('Owner Steak');
   });
 });
 
