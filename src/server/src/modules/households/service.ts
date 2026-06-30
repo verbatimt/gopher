@@ -19,6 +19,8 @@ export interface MemberDto {
   isManaged: boolean;
   isOwner: boolean;
   hasLogin: boolean;
+  /** EP-0050: a managed, login-less member can be claimed via an invite. */
+  claimable: boolean;
   role: string;
 }
 
@@ -31,6 +33,7 @@ function toMemberDto(member: typeof householdMembers.$inferSelect, roleName: str
     isManaged: member.isManaged,
     isOwner: member.isOwner,
     hasLogin: member.userId !== null,
+    claimable: member.isManaged && member.userId === null,
     role: roleName,
   };
 }

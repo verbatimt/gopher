@@ -34,7 +34,13 @@ class MealProvider extends BaseProvider {
     notifyListeners();
   }
 
-  Future<bool> setEntry(int dayOfWeek, String mealType, String mealName) async {
+  Future<bool> setEntry(
+    int dayOfWeek,
+    String mealType,
+    String mealName, {
+    String? recipeId,
+    int? servings,
+  }) async {
     final h = _householdId;
     if (h == null) return false;
     return (await runGuarded(() async {
@@ -43,13 +49,25 @@ class MealProvider extends BaseProvider {
           await _service.upsertEntry(h, plan.id, {
             'dayOfWeek': dayOfWeek,
             'mealType': mealType,
-            'mealName': mealName,
+            if (mealName.isNotEmpty) 'mealName': mealName,
+            'recipeId': recipeId,
+            'servings': ?servings,
           });
           _plan = await _service.getPlan(h, plan.id);
           notifyListeners();
           return true;
         })) ??
         false;
+  }
+
+  /// EP-0046: push the current plan's recipe-derived ingredients to the grocery list.
+  Future<Map<String, int>?> addPlanIngredientsToGrocery() async {
+    final h = _householdId;
+    final plan = _plan;
+    if (h == null || plan == null) return null;
+    final result = await runGuarded(() => _service.seedFromPlanIngredients(h, plan.id));
+    if (result != null) await loadGrocery();
+    return result;
   }
 
   Future<void> deleteEntry(String entryId) async {

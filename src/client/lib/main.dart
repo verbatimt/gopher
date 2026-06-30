@@ -7,30 +7,38 @@ import 'core/constants.dart';
 import 'core/storage/token_store.dart';
 import 'core/storage/token_store_factory.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/audit_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/biometric_provider.dart';
 import 'providers/budget_provider.dart';
 import 'providers/calendar_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/finance_provider.dart';
 import 'providers/health_provider.dart';
+import 'providers/inventory_provider.dart';
 import 'providers/household_provider.dart';
 import 'providers/meal_provider.dart';
 import 'providers/medication_provider.dart';
 import 'providers/module_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/recipe_provider.dart';
 import 'providers/reward_provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/ws_provider.dart';
+import 'services/audit_service.dart';
 import 'services/auth_service.dart';
+import 'services/biometric_service.dart';
 import 'services/budget_service.dart';
 import 'services/calendar_service.dart';
 import 'services/dashboard_service.dart';
 import 'services/finance_service.dart';
 import 'services/health_service.dart';
 import 'services/household_service.dart';
+import 'services/inventory_service.dart';
 import 'services/meal_service.dart';
 import 'services/medication_service.dart';
 import 'services/notification_service.dart';
+import 'services/recipe_service.dart';
 import 'services/reward_service.dart';
 import 'services/task_service.dart';
 import 'services/ws_service.dart';
@@ -59,8 +67,12 @@ class _GopherAppState extends State<GopherApp> {
   late final TaskProvider _tasks;
   late final CalendarProvider _calendar;
   late final MedicationProvider _medications;
+  late final BiometricProvider _biometrics;
   late final RewardProvider _rewards;
   late final MealProvider _meals;
+  late final RecipeProvider _recipes;
+  late final InventoryProvider _inventory;
+  late final AuditProvider _audit;
   late final FinanceProvider _finance;
   late final BudgetProvider _budgets;
   late final DashboardProvider _dashboard;
@@ -82,8 +94,12 @@ class _GopherAppState extends State<GopherApp> {
     _tasks = TaskProvider(TaskService(_apiClient))..bindEvents(_ws.events);
     _calendar = CalendarProvider(CalendarService(_apiClient))..bindEvents(_ws.events);
     _medications = MedicationProvider(MedicationService(_apiClient))..bindEvents(_ws.events);
+    _biometrics = BiometricProvider(BiometricService(_apiClient));
     _rewards = RewardProvider(RewardService(_apiClient))..bindEvents(_ws.events);
     _meals = MealProvider(MealService(_apiClient));
+    _recipes = RecipeProvider(RecipeService(_apiClient));
+    _inventory = InventoryProvider(InventoryService(_apiClient));
+    _audit = AuditProvider(AuditService(_apiClient));
     _finance = FinanceProvider(FinanceService(_apiClient));
     _budgets = BudgetProvider(BudgetService(_apiClient));
     _dashboard = DashboardProvider(DashboardService(_apiClient))..bindEvents(_ws.events);
@@ -136,8 +152,12 @@ class _GopherAppState extends State<GopherApp> {
         ChangeNotifierProvider<TaskProvider>.value(value: _tasks),
         ChangeNotifierProvider<CalendarProvider>.value(value: _calendar),
         ChangeNotifierProvider<MedicationProvider>.value(value: _medications),
+        ChangeNotifierProvider<BiometricProvider>.value(value: _biometrics),
         ChangeNotifierProvider<RewardProvider>.value(value: _rewards),
         ChangeNotifierProvider<MealProvider>.value(value: _meals),
+        ChangeNotifierProvider<RecipeProvider>.value(value: _recipes),
+        ChangeNotifierProvider<InventoryProvider>.value(value: _inventory),
+        ChangeNotifierProvider<AuditProvider>.value(value: _audit),
         ChangeNotifierProvider<FinanceProvider>.value(value: _finance),
         ChangeNotifierProvider<BudgetProvider>.value(value: _budgets),
         ChangeNotifierProvider<DashboardProvider>.value(value: _dashboard),

@@ -3,6 +3,7 @@
 // seed steps here. Invoked manually (e.g. `bun run src/db/seed.ts`).
 
 import { sql } from './client.ts';
+import { seedMeasurementTypes } from './seeds/measurement-types.ts';
 import { seedRoles } from './seeds/roles.ts';
 
 interface SeedStep {
@@ -11,7 +12,10 @@ interface SeedStep {
 }
 
 // Domain EPs append steps to this list (each idempotent).
-const steps: SeedStep[] = [{ name: 'roles & permissions', run: () => seedRoles() }];
+const steps: SeedStep[] = [
+  { name: 'roles & permissions', run: () => seedRoles() },
+  { name: 'measurement types', run: () => seedMeasurementTypes() },
+];
 
 async function seed(): Promise<void> {
   if (steps.length === 0) {

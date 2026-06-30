@@ -226,7 +226,7 @@ class _MemberTile extends StatelessWidget {
     final household = context.read<HouseholdProvider>();
     final (label, tone) = member.state == MemberState.linked
         ? ('Linked', StatusTone.success)
-        : ('No Account', StatusTone.neutral);
+        : (member.claimable ? 'Claimable' : 'No Account', StatusTone.neutral);
 
     return ListTile(
       leading: MemberAvatar(name: member.displayName),
@@ -239,19 +239,99 @@ class _MemberTile extends StatelessWidget {
           if (isSupervisor && !member.isOwner)
             PopupMenuButton<String>(
               onSelected: (action) {
-                if (action == 'deactivate') {
+                if (action == 'claim') {
+                  _sendClaimInvite(context, household);
+                } else if (action == 'deactivate') {
                   household.deactivateMember(member.id);
                 } else {
                   household.changeMemberRole(member.id, action);
                 }
               },
-              itemBuilder: (menuContext) => const [
-                PopupMenuItem(value: RoleNames.supervising, child: Text('Make supervisor')),
-                PopupMenuItem(value: RoleNames.unsupervised, child: Text('Make member')),
-                PopupMenuItem(value: RoleNames.supervised, child: Text('Make supervised')),
-                PopupMenuItem(value: 'deactivate', child: Text('Deactivate')),
+              itemBuilder: (menuContext) => [
+                if (member.claimable)
+                  const PopupMenuItem(value: 'claim', child: Text('Send claim invite')),
+                const PopupMenuItem(value: RoleNames.supervising, child: Text('Make supervisor')),
+                const PopupMenuItem(value: RoleNames.unsupervised, child: Text('Make member')),
+                const PopupMenuItem(value: RoleNames.supervised, child: Text('Make supervised')),
+                const PopupMenuItem(value: 'deactivate', child: Text('Deactivate')),
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  /// EP-0050: send a claim invite so an existing managed member can be claimed with a login.
+  Future<void> _sendClaimInvite(BuildContext context, HouseholdProvider household) async {
+    final emailController = TextEditingController();
+    var role = member.role;
+    final formKey = GlobalKey<FormState>();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text('Claim invite for ${member.displayName}'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                  validator: validateEmail,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: role,
+                  decoration: const InputDecoration(labelText: 'Role'),
+                  items: const [
+                    DropdownMenuItem(value: RoleNames.unsupervised, child: Text('Member')),
+                    DropdownMenuItem(value: RoleNames.supervising, child: Text('Supervisor')),
+                    DropdownMenuItem(value: RoleNames.supervised, child: Text('Supervised')),
+                  ],
+                  onChanged: (v) => setLocal(() => role = v ?? member.role),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Send'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (submitted != true || !context.mounted) return;
+    final token = await household.createInvite(
+      emailController.text.trim(),
+      role,
+      memberId: member.id,
+    );
+    if (token == null || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Claim invite created'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Share this single-use token with the person claiming this profile:'),
+            const SizedBox(height: 8),
+            SelectableText(token, style: Theme.of(dialogContext).textTheme.bodySmall),
+          ],
+        ),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Done')),
         ],
       ),
     );

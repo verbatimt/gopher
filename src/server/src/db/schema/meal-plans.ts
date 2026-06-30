@@ -1,11 +1,12 @@
 // Meal planning (EP-0030, context §5): a weekly plan per household (one per week) with one
-// entry per (day, meal type) slot. No recipes/nutrition (explicitly out of scope) — entries
-// are just a meal name + optional notes.
+// entry per (day, meal type) slot. EP-0046 (Tier 8) adds an optional recipe link + per-entry
+// servings; meal_name remains the display fallback when no recipe is linked.
 
 import { sql } from 'drizzle-orm';
 import { check, integer, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 import { baseColumns } from '../_shared.ts';
 import { households } from './households.ts';
+import { recipes } from './recipes.ts';
 
 export const mealPlans = pgTable(
   'meal_plans',
@@ -31,6 +32,10 @@ export const mealPlanEntries = pgTable(
     mealType: text().notNull(), // breakfast | lunch | dinner | snack
     mealName: text().notNull(),
     notes: text(),
+    // EP-0046: optional recipe link. ON DELETE SET NULL so deleting a recipe never orphans a
+    // plan; the entry keeps its meal_name snapshot. `servings` scales ingredient derivation.
+    recipeId: uuid().references(() => recipes.id, { onDelete: 'set null' }),
+    servings: integer(),
   },
   (t) => [
     check('meal_plan_entries_day_chk', sql`${t.dayOfWeek} between 0 and 6`),

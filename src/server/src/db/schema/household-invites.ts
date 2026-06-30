@@ -5,7 +5,7 @@
 
 import { sql } from 'drizzle-orm';
 import { pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
-import { households } from './households.ts';
+import { householdMembers, households } from './households.ts';
 import { roles } from './roles.ts';
 import { users } from './users.ts';
 
@@ -22,6 +22,9 @@ export const householdInvites = pgTable(
     roleId: uuid()
       .notNull()
       .references(() => roles.id),
+    // EP-0050: when set, accepting links the new login to this existing managed member instead
+    // of creating a fresh one (NULL ⇒ original create-new-member behavior).
+    memberId: uuid().references(() => householdMembers.id),
     acceptedAt: timestamp({ withTimezone: true }),
     revokedAt: timestamp({ withTimezone: true }),
     expiresAt: timestamp({ withTimezone: true }).notNull(),

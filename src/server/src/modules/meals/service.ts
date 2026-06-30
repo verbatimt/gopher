@@ -5,8 +5,15 @@
 
 import { and, asc, eq } from 'drizzle-orm';
 import { db, withTransaction } from '../../db/index.ts';
-import { groceryItems, groceryLists, mealPlanEntries, mealPlans } from '../../db/schema/index.ts';
-import { ConflictError, NotFoundError } from '../../http/errors.ts';
+import {
+  groceryItems,
+  groceryLists,
+  mealPlanEntries,
+  mealPlans,
+  recipeIngredients,
+  recipes,
+} from '../../db/schema/index.ts';
+import { ConflictError, InvalidError, NotFoundError } from '../../http/errors.ts';
 
 export interface ActorContext {
   userId: string;
@@ -70,26 +77,57 @@ export async function getPlan(ctx: ActorContext, planId: string) {
 export interface EntryInput {
   dayOfWeek: number;
   mealType: string;
-  mealName: string;
+  mealName?: string;
   notes?: string;
+  recipeId?: string | null;
+  servings?: number | null;
 }
 
-/** Assign a meal to a (day, meal-type) slot — replaces any existing entry in that slot. */
+/** Resolve a recipe in the household (active or not — historical refs resolve); returns its
+ *  name so meal_name can default to it. Throws if the recipe is not in the household. */
+async function recipeName(householdId: string, recipeId: string): Promise<string> {
+  const [row] = await db
+    .select({ name: recipes.name })
+    .from(recipes)
+    .where(and(eq(recipes.id, recipeId), eq(recipes.householdId, householdId)))
+    .limit(1);
+  if (!row) throw new NotFoundError('Recipe not found.');
+  return row.name;
+}
+
+/** Assign a meal to a (day, meal-type) slot — replaces any existing entry in that slot. When a
+ *  recipeId is set, meal_name defaults to the recipe name if omitted (EP-0046). */
 export async function upsertEntry(ctx: ActorContext, planId: string, input: EntryInput) {
   const plan = await loadPlan(ctx.householdId, planId);
   if (!plan) throw new NotFoundError('Meal plan not found.');
+
+  let name = input.mealName;
+  if (input.recipeId) {
+    const rn = await recipeName(ctx.householdId, input.recipeId);
+    name = name ?? rn;
+  }
+  if (!name) throw new InvalidError('A meal name or recipe is required.');
+
   const [row] = await db
     .insert(mealPlanEntries)
     .values({
       mealPlanId: planId,
       dayOfWeek: input.dayOfWeek,
       mealType: input.mealType,
-      mealName: input.mealName,
+      mealName: name,
       notes: input.notes ?? null,
+      recipeId: input.recipeId ?? null,
+      servings: input.servings ?? null,
     })
     .onConflictDoUpdate({
       target: [mealPlanEntries.mealPlanId, mealPlanEntries.dayOfWeek, mealPlanEntries.mealType],
-      set: { mealName: input.mealName, notes: input.notes ?? null, updatedAt: new Date() },
+      set: {
+        mealName: name,
+        notes: input.notes ?? null,
+        recipeId: input.recipeId ?? null,
+        servings: input.servings ?? null,
+        updatedAt: new Date(),
+      },
     })
     .returning();
   return row!;
@@ -99,13 +137,26 @@ export async function updateEntry(
   ctx: ActorContext,
   planId: string,
   entryId: string,
-  patch: { mealName?: string; notes?: string },
+  patch: { mealName?: string; notes?: string; recipeId?: string | null; servings?: number | null },
 ) {
   const plan = await loadPlan(ctx.householdId, planId);
   if (!plan) throw new NotFoundError('Meal plan not found.');
+
+  const updates: Partial<typeof mealPlanEntries.$inferInsert> = { updatedAt: new Date() };
+  if (patch.notes !== undefined) updates.notes = patch.notes;
+  if (patch.servings !== undefined) updates.servings = patch.servings;
+  if (patch.recipeId !== undefined) {
+    updates.recipeId = patch.recipeId;
+    // Linking a recipe defaults the name to the recipe's when none is supplied.
+    if (patch.recipeId && patch.mealName === undefined) {
+      updates.mealName = await recipeName(ctx.householdId, patch.recipeId);
+    }
+  }
+  if (patch.mealName !== undefined) updates.mealName = patch.mealName;
+
   const [row] = await db
     .update(mealPlanEntries)
-    .set({ ...patch, updatedAt: new Date() })
+    .set(updates)
     .where(and(eq(mealPlanEntries.id, entryId), eq(mealPlanEntries.mealPlanId, planId)))
     .returning();
   if (!row) throw new NotFoundError('Meal entry not found.');
@@ -150,6 +201,8 @@ export async function copyPlan(ctx: ActorContext, sourcePlanId: string, targetWe
           mealType: e.mealType,
           mealName: e.mealName,
           notes: e.notes,
+          recipeId: e.recipeId,
+          servings: e.servings,
         })),
       );
     }
@@ -241,4 +294,140 @@ export async function seedGroceryFromPlan(ctx: ActorContext, planId: string) {
     .insert(groceryItems)
     .values(entries.map((e) => ({ groceryListId: list.id, name: e.mealName })));
   return { added: entries.length };
+}
+
+// --- Ingredient-derived grocery (EP-0046) ---
+
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** Trim a number to a compact string (no trailing .0). */
+function numLabel(n: number): string {
+  return n === Math.round(n) ? String(Math.round(n)) : String(round2(n));
+}
+
+/** Format an aggregated quantity + unit into the grocery `quantity` text (e.g. "400 g"). */
+function formatQty(num: number | null, unit: string): string | null {
+  if (num === null) return null;
+  return unit ? `${numLabel(num)} ${unit}` : numLabel(num);
+}
+
+/** Parse a grocery `quantity` text back into a numeric amount + unit (for merge). */
+function parseQty(raw: string | null): { num: number | null; unit: string } {
+  if (!raw) return { num: null, unit: '' };
+  const m = /^\s*([0-9]+(?:\.[0-9]+)?)\s*(.*)$/.exec(raw);
+  if (!m) return { num: null, unit: raw.trim().toLowerCase() };
+  return { num: Number(m[1]), unit: (m[2] ?? '').trim() };
+}
+
+interface AggLine {
+  name: string;
+  unit: string;
+  num: number | null;
+  hasQty: boolean;
+}
+
+/**
+ * Derive grocery items from a plan's recipe-linked entries (EP-0046). Expands each linked
+ * recipe's ingredients, scales by `entry.servings / recipe.servings` when both are known,
+ * aggregates by case-insensitive `(name, unit)`, and merges into the existing grocery list
+ * (incrementing a matching pending line rather than duplicating). Free-text entries (no
+ * recipe) fall back to seeding the `meal_name`.
+ */
+export async function seedGroceryFromPlanIngredients(ctx: ActorContext, planId: string) {
+  const plan = await loadPlan(ctx.householdId, planId);
+  if (!plan) throw new NotFoundError('Meal plan not found.');
+  const entries = await db
+    .select()
+    .from(mealPlanEntries)
+    .where(eq(mealPlanEntries.mealPlanId, planId));
+
+  const agg = new Map<string, AggLine>();
+  const freeText: string[] = [];
+
+  for (const entry of entries) {
+    if (!entry.recipeId) {
+      freeText.push(entry.mealName);
+      continue;
+    }
+    const [recipe] = await db
+      .select({ servings: recipes.servings })
+      .from(recipes)
+      .where(eq(recipes.id, entry.recipeId))
+      .limit(1);
+    const recipeServings = recipe?.servings ?? null;
+    const factor =
+      entry.servings && recipeServings && recipeServings > 0 ? entry.servings / recipeServings : 1;
+    const ings = await db
+      .select()
+      .from(recipeIngredients)
+      .where(eq(recipeIngredients.recipeId, entry.recipeId));
+    for (const ing of ings) {
+      const unit = (ing.unit ?? '').trim();
+      const key = `${ing.name.trim().toLowerCase()}|${unit.toLowerCase()}`;
+      const qty = ing.quantity != null ? Number(ing.quantity) * factor : null;
+      const existing = agg.get(key);
+      if (existing) {
+        if (qty != null) {
+          existing.num = (existing.num ?? 0) + qty;
+          existing.hasQty = true;
+        }
+      } else {
+        agg.set(key, { name: ing.name.trim(), unit, num: qty, hasQty: qty != null });
+      }
+    }
+  }
+
+  const list = await ensureList(ctx.householdId);
+  const pending = await db
+    .select()
+    .from(groceryItems)
+    .where(
+      and(
+        eq(groceryItems.groceryListId, list.id),
+        eq(groceryItems.isActive, true),
+        eq(groceryItems.isChecked, false),
+      ),
+    );
+
+  let added = 0;
+  let merged = 0;
+
+  for (const line of agg.values()) {
+    const qtyNum = line.hasQty ? round2(line.num ?? 0) : null;
+    // Find a pending line with the same name (ci) AND the same unit (parsed from its quantity).
+    const match = pending.find((p) => {
+      if (p.name.trim().toLowerCase() !== line.name.toLowerCase()) return false;
+      return parseQty(p.quantity).unit.toLowerCase() === line.unit.toLowerCase();
+    });
+    if (match) {
+      const prev = parseQty(match.quantity);
+      const total = qtyNum != null || prev.num != null ? (prev.num ?? 0) + (qtyNum ?? 0) : null;
+      await db
+        .update(groceryItems)
+        .set({ quantity: formatQty(total, line.unit), updatedAt: new Date() })
+        .where(eq(groceryItems.id, match.id));
+      merged++;
+    } else {
+      const [row] = await db
+        .insert(groceryItems)
+        .values({ groceryListId: list.id, name: line.name, quantity: formatQty(qtyNum, line.unit) })
+        .returning();
+      pending.push(row!);
+      added++;
+    }
+  }
+
+  // Free-text meals (no recipe) seed by name, skipping an identical pending line.
+  for (const name of freeText) {
+    const exists = pending.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (exists) continue;
+    const [row] = await db
+      .insert(groceryItems)
+      .values({ groceryListId: list.id, name })
+      .returning();
+    pending.push(row!);
+    added++;
+  }
+
+  return { added, merged };
 }

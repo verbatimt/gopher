@@ -10,6 +10,8 @@ class MealEntry {
   final String mealType;
   final String mealName;
   final String? notes;
+  final String? recipeId; // EP-0046: optional recipe link
+  final int? servings;
 
   const MealEntry({
     required this.id,
@@ -17,6 +19,8 @@ class MealEntry {
     required this.mealType,
     required this.mealName,
     this.notes,
+    this.recipeId,
+    this.servings,
   });
 
   factory MealEntry.fromJson(Map<String, dynamic> json) => MealEntry(
@@ -25,6 +29,8 @@ class MealEntry {
         mealType: json['mealType'] as String? ?? 'dinner',
         mealName: json['mealName'] as String? ?? '',
         notes: json['notes'] as String?,
+        recipeId: json['recipeId'] as String?,
+        servings: (json['servings'] as num?)?.toInt(),
       );
 }
 

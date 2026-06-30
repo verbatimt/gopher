@@ -82,11 +82,14 @@ class HouseholdProvider extends BaseProvider {
     return true;
   }
 
-  /// Create an invite; returns the raw token to share (or null on failure).
-  Future<String?> createInvite(String email, String role) async {
+  /// Create an invite; returns the raw token to share (or null on failure). Pass [memberId] to
+  /// send a claim invite for an existing managed member (EP-0050).
+  Future<String?> createInvite(String email, String role, {String? memberId}) async {
     final id = _householdId;
     if (id == null) return null;
-    final token = await runGuarded(() => _service.createInvite(id, email: email, role: role));
+    final token = await runGuarded(
+      () => _service.createInvite(id, email: email, role: role, memberId: memberId),
+    );
     if (token == null) return null;
     await refresh();
     return token;

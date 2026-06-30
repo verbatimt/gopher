@@ -56,10 +56,15 @@ class HouseholdService {
   }
 
   /// Create an invite; returns the (raw) token to share out-of-band.
-  Future<String> createInvite(String householdId, {required String email, required String role}) {
+  Future<String> createInvite(
+    String householdId, {
+    required String email,
+    required String role,
+    String? memberId,
+  }) {
     return _api.postEnveloped(
       '${_base(householdId)}/invites',
-      {'email': email, 'role': role},
+      {'email': email, 'role': role, 'memberId': ?memberId},
       (r) => (r as Map)['token'] as String,
     );
   }

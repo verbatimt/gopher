@@ -32,6 +32,22 @@ class AuthProvider extends BaseProvider {
   bool get isResolved => _status != AuthStatus.unknown;
   bool get hasHousehold => _householdId.isNotEmpty;
 
+  /// The signed-in user's own `household_members` id (from `/auth/me`), or null if unknown.
+  String? get currentMemberId => _user?.memberId;
+
+  /// Ensure [currentMemberId] is populated. After login/register the session user has no
+  /// member id (it is not in the token); this lazily fetches `/auth/me` to fill it. Returns
+  /// the member id, or null on failure.
+  Future<String?> ensureMemberId() async {
+    if (_user?.memberId != null) return _user!.memberId;
+    final me = await runGuarded(() => _authService.fetchMe());
+    if (me != null) {
+      _user = me;
+      notifyListeners();
+    }
+    return _user?.memberId;
+  }
+
   /// Restore the session on startup. Validates the stored token (refreshing if needed).
   Future<void> init() async {
     final token = await _tokenStore.readAccessToken();

@@ -19,6 +19,7 @@ import {
   getPlan,
   listPlans,
   seedGroceryFromPlan,
+  seedGroceryFromPlanIngredients,
   updateEntry,
   updateGroceryItem,
   upsertEntry,
@@ -30,6 +31,7 @@ import {
   entryBody,
   planQuery,
   seedBody,
+  seedFromPlanBody,
   updateEntryBody,
   updateItemBody,
 } from './validators.ts';
@@ -122,4 +124,15 @@ export const mealsPlugin = new Elysia({ name: 'meals' })
     '/households/:id/grocery/seed',
     async ({ claims, body }) => success(await seedGroceryFromPlan(actor(claims!), body.planId)),
     { requireHousehold: 'id', requirePermissions: [Permissions.mealsWrite], body: seedBody },
+  )
+  // EP-0046: ingredient-derived grocery seeding from a plan's recipe-linked entries.
+  .post(
+    '/households/:id/grocery/seed-from-plan',
+    async ({ claims, body }) =>
+      success(await seedGroceryFromPlanIngredients(actor(claims!), body.planId)),
+    {
+      requireHousehold: 'id',
+      requirePermissions: [Permissions.mealsWrite],
+      body: seedFromPlanBody,
+    },
   );

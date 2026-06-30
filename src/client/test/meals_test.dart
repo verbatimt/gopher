@@ -9,10 +9,12 @@ import 'package:gopher/providers/auth_provider.dart';
 import 'package:gopher/providers/meal_provider.dart';
 import 'package:gopher/providers/module_provider.dart';
 import 'package:gopher/providers/notification_provider.dart';
+import 'package:gopher/providers/recipe_provider.dart';
 import 'package:gopher/screens/meals/meal_planner_screen.dart';
 import 'package:gopher/services/auth_service.dart';
 import 'package:gopher/services/meal_service.dart';
 import 'package:gopher/services/notification_service.dart';
+import 'package:gopher/services/recipe_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
@@ -145,6 +147,9 @@ void main() {
           ChangeNotifierProvider<ModuleProvider>.value(value: modules),
           ChangeNotifierProvider<MealProvider>.value(
             value: MealProvider(MealService(_client(mealMock))),
+          ),
+          ChangeNotifierProvider<RecipeProvider>.value(
+            value: RecipeProvider(RecipeService(_client(mealMock))),
           ),
           ChangeNotifierProvider<NotificationProvider>.value(
             value: NotificationProvider(NotificationService(_client(mealMock))),

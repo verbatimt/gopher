@@ -18,14 +18,22 @@ export const planQuery = t.Object({ weekStart: t.Optional(dateStr) });
 export const entryBody = t.Object({
   dayOfWeek: t.Integer({ minimum: 0, maximum: 6 }),
   mealType,
-  mealName: t.String({ minLength: 1, maxLength: 200 }),
+  // Optional when a recipeId is given (meal_name defaults to the recipe name); the service
+  // rejects an entry with neither (EP-0046).
+  mealName: t.Optional(t.String({ minLength: 1, maxLength: 200 })),
   notes: t.Optional(t.String({ maxLength: 1000 })),
+  recipeId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
+  servings: t.Optional(t.Union([t.Integer({ minimum: 1, maximum: 100 }), t.Null()])),
 });
 
 export const updateEntryBody = t.Object({
   mealName: t.Optional(t.String({ minLength: 1, maxLength: 200 })),
   notes: t.Optional(t.String({ maxLength: 1000 })),
+  recipeId: t.Optional(t.Union([t.String({ format: 'uuid' }), t.Null()])),
+  servings: t.Optional(t.Union([t.Integer({ minimum: 1, maximum: 100 }), t.Null()])),
 });
+
+export const seedFromPlanBody = t.Object({ planId: t.String({ format: 'uuid' }) });
 
 export const copyBody = t.Object({ targetWeekStart: dateStr });
 

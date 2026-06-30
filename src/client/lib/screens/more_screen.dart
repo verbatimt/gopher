@@ -38,12 +38,36 @@ class MoreScreen extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/members'),
           ),
+          // Activity log is supervisor-only (the server also enforces audit:read).
+          if (auth.roles.contains(RoleNames.supervising))
+            ListTile(
+              leading: const Icon(Icons.fact_check_outlined),
+              title: const Text('Activity log'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/audit-log'),
+            ),
+          // Module management is supervisor-only (the server also enforces household:write).
+          if (auth.roles.contains(RoleNames.supervising))
+            ListTile(
+              leading: const Icon(Icons.extension_outlined),
+              title: const Text('Modules'),
+              subtitle: Text('Enable or disable household features',
+                  style: theme.textTheme.bodySmall),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/modules'),
+            ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.medication_outlined),
             title: const Text('Medications'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/medications'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.monitor_heart_outlined),
+            title: const Text('Health & vitals'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/health'),
           ),
           ListTile(
             leading: const Icon(Icons.card_giftcard_outlined),
@@ -56,6 +80,18 @@ class MoreScreen extends StatelessWidget {
             title: const Text('Meals'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/meals'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.menu_book_outlined),
+            title: const Text('Recipes'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/recipes'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.inventory_2_outlined),
+            title: const Text('Inventory'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/inventory'),
           ),
           // Finance is hidden from supervised members (server denies them too).
           if (auth.roles.any((r) => r == RoleNames.supervising || r == RoleNames.unsupervised)) ...[

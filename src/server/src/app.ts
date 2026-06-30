@@ -9,15 +9,19 @@ import { config } from './config.ts';
 import { failure } from './http/envelope.ts';
 import { AppError } from './http/errors.ts';
 import { messages } from './http/messages.ts';
+import { auditPlugin } from './modules/audit/routes.ts';
 import { authPlugin } from './modules/auth/index.ts';
+import { biometricsPlugin } from './modules/biometrics/routes.ts';
 import { calendarPlugin } from './modules/calendar/routes.ts';
 import { dashboardPlugin } from './modules/dashboard/routes.ts';
 import { financePlugin } from './modules/finance/routes.ts';
 import { financeExtPlugin } from './modules/finance-extensions/routes.ts';
 import { householdsPlugin } from './modules/households/routes.ts';
+import { inventoryPlugin } from './modules/inventory/routes.ts';
 import { mealsPlugin } from './modules/meals/routes.ts';
 import { medicationsPlugin } from './modules/medications/routes.ts';
 import { notificationsPlugin } from './modules/notifications/routes.ts';
+import { recipesPlugin } from './modules/recipes/routes.ts';
 import { rewardsPlugin } from './modules/rewards/routes.ts';
 import { tasksPlugin } from './modules/tasks/routes.ts';
 import { logger } from './observability/logger.ts';
@@ -105,8 +109,12 @@ export function createApp() {
           .use(calendarPlugin)
           .use(tasksPlugin)
           .use(medicationsPlugin)
+          .use(biometricsPlugin)
           .use(rewardsPlugin)
           .use(mealsPlugin)
+          .use(recipesPlugin)
+          .use(inventoryPlugin)
+          .use(auditPlugin)
           .use(dashboardPlugin)
           .use(financePlugin)
           .use(financeExtPlugin),

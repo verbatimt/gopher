@@ -66,3 +66,30 @@ drives client module gating (EP-0015). Module ids match the client `AppModules` 
 person across multiple households) plus a per-household membership row referencing it. This
 normalization is documented for the future; MVP keeps person attributes directly on
 `household_members`.
+
+## Invitation-to-member linking — claim path (EP-0050)
+
+`household_invites` carries an optional `member_id`. Two acceptance paths:
+
+- **`member_id IS NULL` (default):** acceptance creates a **fresh** `household_members` row — the
+  original behavior, byte-for-byte unchanged.
+- **`member_id` set (claim):** the invite targets an existing **managed** member
+  (`user_id IS NULL`, `is_managed = true`, active). On acceptance, the new login is **linked** to
+  that member — same member id, `display_name`, and every referencing row preserved — by setting
+  `user_id` and flipping `is_managed = false`. **No** new member is created.
+
+Member state gains a **claimable** flag (`isManaged && user_id IS NULL`), surfaced in the member
+roster with a "Send claim invite" action.
+
+```
+managed member (no login)  ──create claim invite──▶  pending claim
+       │                                                   │ accept (new account)
+       ▼                                                   ▼
+  claimable = true                              linked member (same id; is_managed=false; user_id set)
+```
+
+**Validation (create):** the target must be in the household, managed, active, and have no open
+claim invite (one per member); a non-managed/already-linked target → `409`. **Accept** re-asserts
+managed + unlinked under a row lock; a lost race or already-claimed target → `409`; expired
+invite → `410`. Both `invite.created` (with `member_id`) and `invite.accepted` (with `linked`)
+are audited.

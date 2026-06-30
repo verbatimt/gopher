@@ -55,9 +55,11 @@ describe('households schema', () => {
       'calendar',
       'tasks',
       'medications',
+      'health',
       'rewards',
       'finance',
       'meals',
+      'inventory',
     ]);
 
     const supervising = await roleId(Roles.supervisingUser);

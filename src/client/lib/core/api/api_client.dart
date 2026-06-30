@@ -63,6 +63,13 @@ class ApiClient {
         ));
   }
 
+  Future<T> putEnveloped<T>(String path, Object? body, T Function(dynamic result) parse) {
+    return _retry(() => _enveloped(
+          () async => _client.put(_uri(path), headers: await _headers(json: true), body: jsonEncode(body)),
+          parse,
+        ));
+  }
+
   Future<T> deleteEnveloped<T>(String path, T Function(dynamic result) parse) {
     return _retry(() => _enveloped(() async => _client.delete(_uri(path), headers: await _headers()), parse));
   }

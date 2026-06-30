@@ -1,0 +1,1 @@
+ALTER TABLE "households" ALTER COLUMN "active_modules" SET DEFAULT '{calendar,tasks,medications,health,rewards,finance,meals}'::text[];

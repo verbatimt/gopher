@@ -28,8 +28,10 @@ class AppModules {
   static const String calendar = 'calendar';
   static const String tasks = 'tasks';
   static const String medications = 'medications';
+  static const String health = 'health';
   static const String rewards = 'rewards';
   static const String meals = 'meals';
+  static const String inventory = 'inventory';
   static const String finance = 'finance';
 
   static const List<String> all = <String>[
@@ -37,8 +39,10 @@ class AppModules {
     calendar,
     tasks,
     medications,
+    health,
     rewards,
     meals,
+    inventory,
     finance,
   ];
 }

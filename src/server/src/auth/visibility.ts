@@ -29,6 +29,13 @@ export function medicationScope(roles: string[]): 'all' | 'self' {
   return role === 'supervising' || role === 'system' ? 'all' : 'self';
 }
 
+/** Vitals visibility (EP-0043): supervisors see all members; everyone else only their own
+ *  readings/targets. Recording for another member is supervisor-gated in the service. */
+export function vitalsScope(roles: string[]): 'all' | 'self' {
+  const role = effectiveRole(roles);
+  return role === 'supervising' || role === 'system' ? 'all' : 'self';
+}
+
 /** Finance is closed to supervised users; throws 403 if the caller lacks finance:read. */
 export function assertFinanceAccess(claims: AuthClaims | null): void {
   if (!claims || !hasPermission(permissionsForRoles(claims.roles), Permissions.financeRead)) {

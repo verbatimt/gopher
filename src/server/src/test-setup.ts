@@ -5,11 +5,13 @@
 
 import { afterAll } from 'bun:test';
 import { applyMigrations, closeDatabase } from './db/index.ts';
+import { seedMeasurementTypes } from './db/seeds/measurement-types.ts';
 import { seedRoles } from './db/seeds/roles.ts';
 import { redis } from './redis/client.ts';
 
 await applyMigrations(`${import.meta.dir}/db/migrations`);
 await seedRoles();
+await seedMeasurementTypes();
 
 afterAll(async () => {
   await redis.quit().catch(() => {});

@@ -10,6 +10,8 @@ class Member {
   final bool isManaged;
   final bool isOwner;
   final bool hasLogin;
+  /// EP-0050: a managed, login-less member can be claimed via an invite.
+  final bool claimable;
   final String role;
 
   const Member({
@@ -20,6 +22,7 @@ class Member {
     required this.isManaged,
     required this.isOwner,
     required this.hasLogin,
+    this.claimable = false,
     required this.role,
   });
 
@@ -34,6 +37,7 @@ class Member {
       isManaged: json['isManaged'] as bool? ?? false,
       isOwner: json['isOwner'] as bool? ?? false,
       hasLogin: json['hasLogin'] as bool? ?? false,
+      claimable: json['claimable'] as bool? ?? false,
       role: json['role'] as String? ?? 'supervised_user',
     );
   }

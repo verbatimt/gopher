@@ -13,9 +13,11 @@ export const DEFAULT_ACTIVE_MODULES = [
   'calendar',
   'tasks',
   'medications',
+  'health',
   'rewards',
   'finance',
   'meals',
+  'inventory',
 ] as const;
 
 export const households = pgTable('households', {
@@ -26,7 +28,7 @@ export const households = pgTable('households', {
   activeModules: text('active_modules')
     .array()
     .notNull()
-    .default(sql`'{calendar,tasks,medications,rewards,finance,meals}'::text[]`),
+    .default(sql`'{calendar,tasks,medications,health,rewards,finance,meals,inventory}'::text[]`),
   rewardCurrencyName: text().notNull().default('Points'),
   createdBy: uuid(),
 });

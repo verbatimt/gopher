@@ -10,6 +10,7 @@ import { config } from '../../config.ts';
 import { success } from '../../http/envelope.ts';
 import { UnauthorizedError } from '../../http/errors.ts';
 import { messages } from '../../http/messages.ts';
+import { resolveMemberId } from '../households/service.ts';
 import { acceptInvite } from '../invites/service.ts';
 import {
   authenticate,
@@ -182,7 +183,12 @@ export const authPlugin = new Elysia({ name: 'auth', prefix: '/auth' })
     const user = await getUserById(claims.userId);
     // biome-ignore lint/complexity/useOptionalChain: explicit form narrows `user` to non-null.
     if (!user || !user.isActive) throw new UnauthorizedError();
-    return success({ user: toProfile(user) });
+    // Expose the caller's household_members id so self-scoped clients (e.g. vitals, EP-0044)
+    // can address their own member without needing members:read.
+    const memberId = claims.householdId
+      ? await resolveMemberId(claims.householdId, claims.userId)
+      : null;
+    return success({ user: { ...toProfile(user), memberId } });
   })
   .patch(
     '/me',
@@ -235,7 +241,7 @@ export const authPlugin = new Elysia({ name: 'auth', prefix: '/auth' })
     '/accept-invite',
     async ({ body, claims, jwt, cookie, request, server, set }) => {
       const meta = requestMeta(request, server);
-      const { userId, householdId } = await acceptInvite({
+      const { userId, householdId, memberId, linked } = await acceptInvite({
         token: body.token,
         userId: claims?.userId,
         password: body.password,
@@ -255,9 +261,10 @@ export const authPlugin = new Elysia({ name: 'auth', prefix: '/auth' })
         householdId,
         actorUserId: userId,
         entityType: 'household_member',
-        entityId: userId,
+        entityId: memberId,
         ipAddress: meta.ip,
         userAgent: meta.userAgent,
+        metadata: { linked },
       });
       const user = await getUserById(userId);
       set.status = 201;

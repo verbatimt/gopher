@@ -84,4 +84,15 @@ class MealService {
   Future<void> deleteGroceryItem(String householdId, String itemId) async {
     await _api.deleteEnveloped('${_base(householdId)}/grocery/items/$itemId', (_) => null);
   }
+
+  /// EP-0046: derive grocery items from a plan's recipe-linked entries; returns {added, merged}.
+  Future<Map<String, int>> seedFromPlanIngredients(String householdId, String planId) {
+    return _api.postEnveloped('${_base(householdId)}/grocery/seed-from-plan', {'planId': planId}, (r) {
+      final map = (r as Map).cast<String, dynamic>();
+      return {
+        'added': (map['added'] as num?)?.toInt() ?? 0,
+        'merged': (map['merged'] as num?)?.toInt() ?? 0,
+      };
+    });
+  }
 }

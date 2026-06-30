@@ -1,6 +1,9 @@
 import 'package:go_router/go_router.dart';
 
 import '../models/auth_state.dart';
+import '../models/biometric.dart';
+import '../models/inventory.dart';
+import '../models/recipe.dart';
 import '../providers/auth_provider.dart';
 import 'auth/accept_invite_screen.dart';
 import 'auth/login_screen.dart';
@@ -11,8 +14,18 @@ import 'finance/finance_screen.dart';
 import 'finance/forecast_detail_screen.dart';
 import 'finances/budgets_screen.dart';
 import 'finances/expenses_screen.dart';
+import 'health/health_overview_screen.dart';
+import 'health/measurement_form_screen.dart';
+import 'health/measurement_list_screen.dart';
+import 'health/measurement_trends_screen.dart';
+import 'inventory/inventory_detail_screen.dart';
+import 'inventory/inventory_form_screen.dart';
+import 'inventory/inventory_list_screen.dart';
 import 'meals/grocery_screen.dart';
 import 'meals/meal_planner_screen.dart';
+import 'recipes/recipe_detail_screen.dart';
+import 'recipes/recipe_form_screen.dart';
+import 'recipes/recipe_list_screen.dart';
 import 'medications/medication_detail_screen.dart';
 import 'medications/medication_form_screen.dart';
 import 'medications/medication_list_screen.dart';
@@ -20,7 +33,9 @@ import 'more_screen.dart';
 import 'notifications/notifications_screen.dart';
 import 'rewards/rewards_screen.dart';
 import 'onboarding/onboarding_screen.dart';
+import 'settings/audit_log_screen.dart';
 import 'settings/members_screen.dart';
+import 'settings/modules_screen.dart';
 import 'settings/profile_screen.dart';
 import 'shell/app_shell.dart';
 import 'splash_screen.dart';
@@ -61,6 +76,8 @@ GoRouter buildRouter(AuthProvider auth) {
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
       GoRoute(path: '/members', builder: (context, state) => const MembersScreen()),
+      GoRoute(path: '/audit-log', builder: (context, state) => const AuditLogScreen()),
+      GoRoute(path: '/modules', builder: (context, state) => const ModulesScreen()),
       GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
       GoRoute(path: '/tasks/new', builder: (context, state) => const TaskFormScreen()),
       GoRoute(
@@ -74,9 +91,54 @@ GoRouter buildRouter(AuthProvider auth) {
         builder: (context, state) =>
             MedicationDetailScreen(scheduleId: state.pathParameters['schedId']!),
       ),
+      GoRoute(path: '/health', builder: (context, state) => const HealthOverviewScreen()),
+      GoRoute(
+        path: '/health/record',
+        builder: (context, state) => MeasurementFormScreen(
+          memberId: state.uri.queryParameters['memberId'] ?? '',
+          existing: state.extra is Measurement ? state.extra as Measurement : null,
+        ),
+      ),
+      GoRoute(
+        path: '/health/history',
+        builder: (context, state) =>
+            MeasurementListScreen(memberId: state.uri.queryParameters['memberId'] ?? ''),
+      ),
+      GoRoute(
+        path: '/health/trends',
+        builder: (context, state) => MeasurementTrendsScreen(
+          memberId: state.uri.queryParameters['memberId'] ?? '',
+          typeKey: state.uri.queryParameters['typeKey'] ?? '',
+        ),
+      ),
       GoRoute(path: '/rewards', builder: (context, state) => const RewardsScreen()),
       GoRoute(path: '/meals', builder: (context, state) => const MealPlannerScreen()),
       GoRoute(path: '/grocery', builder: (context, state) => const GroceryScreen()),
+      GoRoute(path: '/recipes', builder: (context, state) => const RecipeListScreen()),
+      GoRoute(path: '/recipes/new', builder: (context, state) => const RecipeFormScreen()),
+      GoRoute(
+        path: '/recipes/:recipeId/edit',
+        builder: (context, state) =>
+            RecipeFormScreen(existing: state.extra is Recipe ? state.extra as Recipe : null),
+      ),
+      GoRoute(
+        path: '/recipes/:recipeId',
+        builder: (context, state) =>
+            RecipeDetailScreen(recipeId: state.pathParameters['recipeId']!),
+      ),
+      GoRoute(path: '/inventory', builder: (context, state) => const InventoryListScreen()),
+      GoRoute(path: '/inventory/new', builder: (context, state) => const InventoryFormScreen()),
+      GoRoute(
+        path: '/inventory/:itemId/edit',
+        builder: (context, state) => InventoryFormScreen(
+          existing: state.extra is InventoryItem ? state.extra as InventoryItem : null,
+        ),
+      ),
+      GoRoute(
+        path: '/inventory/:itemId',
+        builder: (context, state) =>
+            InventoryDetailScreen(itemId: state.pathParameters['itemId']!),
+      ),
       GoRoute(path: '/finance', builder: (context, state) => const FinanceScreen()),
       GoRoute(
         path: '/finance/forecasts/:forecastId',

@@ -37,6 +37,8 @@ export interface InviteDto {
   id: string;
   email: string;
   status: InviteStatus;
+  /** EP-0050: set when this invite claims an existing managed member. */
+  memberId: string | null;
   expiresAt: Date;
   createdAt: Date;
 }
@@ -46,21 +48,47 @@ function toInviteDto(invite: typeof householdInvites.$inferSelect): InviteDto {
     id: invite.id,
     email: invite.email,
     status: inviteStatus(invite),
+    memberId: invite.memberId,
     expiresAt: invite.expiresAt,
     createdAt: invite.createdAt,
   };
 }
 
-/** Create an invite (hashed token, 7-day expiry). Duplicate pending → 409. */
+/** True if a member is currently claimable (managed, login-less, active). */
+async function assertClaimableTarget(householdId: string, memberId: string): Promise<void> {
+  const [member] = await db
+    .select()
+    .from(householdMembers)
+    .where(and(eq(householdMembers.id, memberId), eq(householdMembers.householdId, householdId)))
+    .limit(1);
+  if (!member?.isActive) throw new NotFoundError('Member not found.');
+  if (member.userId !== null || !member.isManaged) {
+    throw new ConflictError('That member already has a login and cannot be claimed.');
+  }
+  // One open claim per member.
+  const existing = await db
+    .select()
+    .from(householdInvites)
+    .where(eq(householdInvites.memberId, memberId));
+  if (existing.some((inv) => inviteStatus(inv) === 'pending')) {
+    throw new DuplicateError('A claim invitation is already pending for this member.');
+  }
+}
+
+/** Create an invite (hashed token, 7-day expiry). Duplicate pending → 409. When `memberId` is
+ *  given, the invite claims that existing managed member on acceptance (EP-0050). */
 export async function createInvite(
   householdId: string,
   invitedBy: string,
   email: string,
   roleName: string,
+  memberId?: string,
 ): Promise<{ invite: InviteDto; rawToken: string }> {
   const normalizedEmail = email.toLowerCase();
   const [role] = await db.select().from(roles).where(eq(roles.name, roleName));
   if (!role) throw new InvalidError('Unknown role.');
+
+  if (memberId) await assertClaimableTarget(householdId, memberId);
 
   const rawToken = generateToken(32);
   const tokenHash = sha256(rawToken);
@@ -75,6 +103,7 @@ export async function createInvite(
         email: normalizedEmail,
         tokenHash,
         roleId: role.id,
+        memberId: memberId ?? null,
         expiresAt,
       })
       .returning();
@@ -127,10 +156,12 @@ export interface AcceptInviteInput {
   displayName?: string;
 }
 
-/** Validate + accept an invite, creating/linking the user, member, and role grant. */
+/** Validate + accept an invite, creating/linking the user, member, and role grant. When the
+ *  invite targets an existing managed member (EP-0050), the new login is linked to that member
+ *  (same id, history intact) instead of inserting a new one. */
 export async function acceptInvite(
   input: AcceptInviteInput,
-): Promise<{ userId: string; householdId: string }> {
+): Promise<{ userId: string; householdId: string; memberId: string; linked: boolean }> {
   const [invite] = await db
     .select()
     .from(householdInvites)
@@ -167,24 +198,51 @@ export async function acceptInvite(
       userId = created!.id;
     }
 
-    // Resolve a display name for the member row.
-    let displayName = input.displayName;
-    if (!displayName) {
-      const [u] = await tx
-        .select({ displayName: users.displayName })
-        .from(users)
-        .where(eq(users.id, userId))
+    let memberId: string;
+    let linked: boolean;
+
+    if (invite.memberId) {
+      // Claim path: re-assert the target is still managed + unlinked under a row lock.
+      const [member] = await tx
+        .select()
+        .from(householdMembers)
+        .where(eq(householdMembers.id, invite.memberId))
+        .for('update')
         .limit(1);
-      displayName = u?.displayName ?? invite.email;
+      if (!member?.isActive || member.userId !== null || !member.isManaged) {
+        throw new ConflictError('This member can no longer be claimed.');
+      }
+      await tx
+        .update(householdMembers)
+        .set({ userId, isManaged: false, roleId: invite.roleId, updatedAt: new Date() })
+        .where(eq(householdMembers.id, member.id));
+      memberId = member.id;
+      linked = true;
+    } else {
+      // Original path: create a fresh member.
+      let displayName = input.displayName;
+      if (!displayName) {
+        const [u] = await tx
+          .select({ displayName: users.displayName })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1);
+        displayName = u?.displayName ?? invite.email;
+      }
+      const [createdMember] = await tx
+        .insert(householdMembers)
+        .values({
+          householdId: invite.householdId,
+          userId,
+          displayName,
+          isOwner: false,
+          roleId: invite.roleId,
+        })
+        .returning();
+      memberId = createdMember!.id;
+      linked = false;
     }
 
-    await tx.insert(householdMembers).values({
-      householdId: invite.householdId,
-      userId,
-      displayName,
-      isOwner: false,
-      roleId: invite.roleId,
-    });
     await tx
       .insert(userRoles)
       .values({ userId, roleId: invite.roleId, householdId: invite.householdId })
@@ -194,6 +252,6 @@ export async function acceptInvite(
       .set({ acceptedAt: new Date() })
       .where(eq(householdInvites.id, invite.id));
 
-    return { userId, householdId: invite.householdId };
+    return { userId, householdId: invite.householdId, memberId, linked };
   });
 }

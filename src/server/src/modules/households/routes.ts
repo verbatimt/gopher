@@ -169,6 +169,7 @@ export const householdsPlugin = new Elysia({ name: 'households' })
         claims!.userId,
         body.email,
         body.role,
+        body.memberId,
       );
       await auditLog({
         action: AuditActions.household.inviteCreated,
@@ -176,7 +177,7 @@ export const householdsPlugin = new Elysia({ name: 'households' })
         actorUserId: claims?.userId,
         entityType: 'household_invite',
         entityId: invite.id,
-        metadata: { email: invite.email },
+        metadata: { email: invite.email, memberId: invite.memberId },
       });
       set.status = 201;
       // The raw token is returned for out-of-band sharing (no email provider on the LAN).
@@ -188,6 +189,8 @@ export const householdsPlugin = new Elysia({ name: 'households' })
       body: t.Object({
         email: t.String({ pattern: EMAIL_PATTERN, maxLength: 254 }),
         role: t.String({ maxLength: 40 }),
+        // EP-0050: optional target managed member to claim on acceptance.
+        memberId: t.Optional(t.String({ format: 'uuid' })),
       }),
     },
   )

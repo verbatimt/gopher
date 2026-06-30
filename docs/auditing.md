@@ -80,3 +80,38 @@ EPs; call sites reference the constant.
   (`REDACTED`), not the value. `auditLog` metadata must never contain raw passwords,
   tokens, or full card numbers.
 - Coverage against this catalog is re-checked in the EP-0038 hardening pass.
+
+## Read API & compliance viewer (EP-0051)
+
+EP-0009 builds the write path; EP-0051 adds **read-only** access and a Flutter "Activity log".
+
+### Endpoints
+- `GET /api/v1/households/:id/audit-logs?actor=&action=&entityType=&entityId=&from=&to=&page=`
+  — household action log, newest-first, paginated (50/page).
+- `GET /api/v1/households/:id/value-change-history?entityType=&entityId=&field=&from=&to=&page=`
+  — value changes for the household's entities.
+- `GET /api/v1/audit/system-logs?action=&from=&to=&page=` — system-level events
+  (`household_id IS NULL`); **system roles only**.
+
+### Access control (EP-0012)
+Household reads require **`audit:read`**, granted to **Owner / `supervising_user`** and the
+system roles. `unsupervised_user` / `supervised_user` get **403**. The system-logs endpoint
+additionally requires a system actor.
+
+### Enrichment
+Rows are enriched with the actor's **display name** (member name preferred, else user name) and a
+**friendly action label** derived from the action string (`household.invite_created` →
+`Household · invite created`). `ip_address`/`user_agent` are included **only for privileged
+viewers**.
+
+### Redaction
+- **Privileged** = a system actor or the household **Owner** — sees raw sensitive values + IP/UA.
+- **Allowed-but-non-privileged** = a non-owner `supervising_user` — sensitive value-change fields
+  (`valueNumeric`, `valueSecondary`, `dosageAmount`, finance amounts/balances, …) are masked to
+  `<hidden>` (`redacted: true`).
+- **`password_hash` is presence-only for everyone** — the write side already stores it redacted,
+  so reads never expose a value.
+
+Reads are strictly household-scoped (by `:id`); no cross-tenant rows are ever returned. This is an
+inspection tool — lean, indexed, paginated — not a bulk export (export/retention/SIEM remain out
+of scope, deferred to EP-0040/0038).
