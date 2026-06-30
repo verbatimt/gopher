@@ -16,11 +16,17 @@ The app uses the **EP-0006 adaptive shell** (`screens/shell/app_shell.dart`) at 
 
 So **Windows/Web** (typically ≥ 600 wide) get the rail/sidebar; **Android** gets the bottom
 bar. Feature screens use scrollable `ListView`s and `SingleChildScrollView` dialogs so content
-reflows without overflow as width/DPI change; the finance/budget grids render as list rows
-(not fixed-width `DataTable`s) to stay usable at compact width and 150% DPI.
+reflows without overflow as width/DPI change; finance grids render as list rows (not fixed-width
+`DataTable`s) to stay usable at compact width and 150% DPI.
 
-Covered by tests: `test/app_shell_test.dart` (compact vs expanded) and
-`test/accessibility_test.dart` (rail extended only at expanded width; large text scale).
+The list/detail features (recipes, inventory, vitals, tasks) additionally adopt the MD3
+**list-detail** canonical layout (`widgets/list_detail_layout.dart`): single-pane with
+full-screen detail routes below `expandedMinWidth` (840), and two side-by-side panes at/above
+it. Breakpoints are named in `core/constants.dart` per the MD3 window size classes.
+
+Covered by tests: `test/app_shell_test.dart` (compact vs expanded), `test/accessibility_test.dart`
+(rail extended only at expanded width; large text scale), `test/list_detail_layout_test.dart`
+(pane switch at the breakpoint), and per-feature `*_test.dart` wide-window two-pane cases.
 
 ## Accessibility
 
@@ -51,7 +57,7 @@ Platform-specific affordances:
 ## Per-screen checklist (applied)
 
 For each primary screen — auth, dashboard, calendar, tasks, medications, rewards, meals,
-finance (forecasting), budgets/expenses — verify: adapts at compact/medium/expanded; no
+inventory, vitals, finance (forecasting) — verify: adapts at compact/medium/expanded; no
 overflow at 150% DPI; icon controls labeled; contrast from MD3 tokens; readable at large text
 scale; reachable by keyboard on desktop/web.
 

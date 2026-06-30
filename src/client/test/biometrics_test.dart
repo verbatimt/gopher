@@ -244,5 +244,63 @@ void main() {
       expect(find.textContaining('needs both values'), findsOneWidget);
       expect(posted, isFalse);
     });
+
+    testWidgets('wide window opens a measurement trend in a side-by-side pane', (tester) async {
+      final auth = await authWith('supervising_user', memberId: 'me');
+      final mock = MockClient((req) async {
+        final path = req.url.path;
+        if (path == '/api/v1/households/h/measurement-types') {
+          return http.Response(_env({'types': [_type('weight', 'Weight')]}), 200);
+        }
+        if (path == '/api/v1/households/h/members/me/measurements/trends') {
+          return http.Response(
+            _env({
+              'trends': {
+                'typeKey': 'weight',
+                'count': 2,
+                'latest': {'measuredAt': '2024-06-02T08:00:00.000Z', 'value': 79, 'valueSecondary': null},
+                'min': 79,
+                'max': 80,
+                'avg': 79.5,
+                'adherencePct': 50.0,
+                'series': [
+                  {'measuredAt': '2024-06-01T08:00:00.000Z', 'value': 80, 'valueSecondary': null},
+                  {'measuredAt': '2024-06-02T08:00:00.000Z', 'value': 79, 'valueSecondary': null},
+                ],
+              },
+            }),
+            200,
+          );
+        }
+        if (path == '/api/v1/households/h/members/me/measurements') {
+          return http.Response(_env({'measurements': [_meas('m1', 'weight', 80)]}), 200);
+        }
+        if (path == '/api/v1/households/h/members/me/measurement-targets') {
+          return http.Response(_env({'targets': const []}), 200);
+        }
+        if (path == '/api/v1/auth/me') {
+          return http.Response(_env({'user': {'id': 'u', 'email': 'a@b.c', 'displayName': 'Owner', 'memberId': 'me'}}), 200);
+        }
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(wrap(
+        const MediaQuery(
+          data: MediaQueryData(size: Size(1100, 800)),
+          child: HealthOverviewScreen(),
+        ),
+        auth,
+        mock,
+      ));
+      await tester.pumpAndSettle();
+      // Before selection the detail pane shows the empty-state placeholder.
+      expect(find.text('Nothing selected'), findsOneWidget);
+      // Selecting a measurement type fills the trend pane in place (no full-screen push).
+      await tester.tap(find.text('Weight'));
+      await tester.pumpAndSettle();
+      expect(find.text('7d'), findsOneWidget); // range selector
+      expect(find.text('Average'), findsOneWidget); // summary row
+      // The list pane is still present, so the name shows in both card and pane header.
+      expect(find.text('Weight'), findsWidgets);
+    });
   });
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gopher/core/api/api_client.dart';
+import 'package:gopher/core/constants.dart';
 import 'package:gopher/core/storage/in_memory_token_store.dart';
 import 'package:gopher/providers/auth_provider.dart';
 import 'package:gopher/providers/calendar_provider.dart';
@@ -11,6 +12,7 @@ import 'package:gopher/providers/notification_provider.dart';
 import 'package:gopher/providers/task_provider.dart';
 import 'package:gopher/screens/calendar/calendar_screen.dart';
 import 'package:gopher/screens/tasks/task_form_screen.dart';
+import 'package:gopher/screens/tasks/task_list_screen.dart';
 import 'package:gopher/services/auth_service.dart';
 import 'package:gopher/services/calendar_service.dart';
 import 'package:gopher/services/notification_service.dart';
@@ -141,5 +143,81 @@ void main() {
     );
     await tester.pump();
     expect(find.byWidgetPredicate((w) => w is TableCalendar), findsOneWidget);
+  });
+
+  testWidgets('wide window opens the task in a side-by-side detail pane', (tester) async {
+    String jwt(Map<String, dynamic> claims) {
+      String seg(Map<String, dynamic> m) =>
+          base64Url.encode(utf8.encode(jsonEncode(m))).replaceAll('=', '');
+      return '${seg({'alg': 'none'})}.${seg(claims)}.sig';
+    }
+
+    final store = InMemoryTokenStore();
+    final loginMock = MockClient((req) async {
+      if (req.url.path == '/api/v1/auth/login') {
+        return http.Response(
+          _env({
+            'accessToken': jwt({'householdId': 'h', 'roles': 'supervising_user'}),
+            'user': {'id': 'u', 'email': 'a@b.c', 'displayName': 'Owner'},
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+    final auth = AuthProvider(
+      tokenStore: store,
+      authService: AuthService(ApiClient(baseUrl: 'http://t', client: loginMock, tokenStore: store)),
+    );
+    await auth.login('a@b.c', 'pw');
+
+    final mock = MockClient((req) async {
+      final path = req.url.path;
+      if (path == '/api/v1/households/h/tasks') {
+        return http.Response(_env({'tasks': [_task('1', 'pending')]}), 200);
+      }
+      if (path == '/api/v1/households/h/tasks/1') {
+        return http.Response(
+          _env({
+            'task': _task('1', 'pending', steps: [
+              {'id': 's1', 'stepOrder': 1, 'description': 'Chop', 'isCompleted': false, 'passive': false},
+            ]),
+          }),
+          200,
+        );
+      }
+      return http.Response('{}', 404);
+    });
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthProvider>.value(value: auth),
+          ChangeNotifierProvider<ModuleProvider>.value(
+            value: ModuleProvider()..setActive(const [AppModules.tasks]),
+          ),
+          ChangeNotifierProvider<NotificationProvider>.value(
+            value: NotificationProvider(NotificationService(_client(mock))),
+          ),
+          ChangeNotifierProvider<TaskProvider>.value(value: TaskProvider(TaskService(_client(mock)))),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(1000, 800)),
+            child: TaskListScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // Before selection the detail pane shows the empty-state placeholder.
+    expect(find.text('Nothing selected'), findsOneWidget);
+    // Selecting a task fills the detail pane in place (no full-screen push).
+    await tester.tap(find.text('T-1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Steps'), findsOneWidget);
+    expect(find.text('Chop'), findsOneWidget);
+    // The list pane is still present, so the title shows in both list and pane header.
+    expect(find.text('T-1'), findsWidgets);
   });
 }

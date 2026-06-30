@@ -8,12 +8,18 @@ import '../../models/inventory.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/list_detail_layout.dart';
 import '../../widgets/module_guard.dart';
 import '../../widgets/status_badge.dart';
 import 'inventory_adjust.dart';
+import 'inventory_detail_screen.dart';
 
 /// Household inventory list (EP-0049): items with low-stock/expiring badges, a search + low-stock
 /// filter, quick consume/restock, and a role-gated add FAB.
+///
+/// On expanded windows this uses the canonical M3 list-detail layout: the item list on the
+/// leading edge and the selected item's detail in the trailing pane. On compact/medium it stays
+/// single-pane and opens the detail as a full-screen route.
 class InventoryListScreen extends StatefulWidget {
   const InventoryListScreen({super.key});
 
@@ -24,6 +30,7 @@ class InventoryListScreen extends StatefulWidget {
 class _InventoryListScreenState extends State<InventoryListScreen> {
   final _search = TextEditingController();
   bool _lowOnly = false;
+  String? _selectedId;
 
   @override
   void initState() {
@@ -50,6 +57,14 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
   bool _canManage(AuthProvider auth) =>
       auth.roles.contains(RoleNames.supervising) || auth.roles.contains(RoleNames.unsupervised);
 
+  void _openItem(String id, bool isTwoPane) {
+    if (isTwoPane) {
+      setState(() => _selectedId = id);
+    } else {
+      context.push('/inventory/$id');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -70,60 +85,88 @@ class _InventoryListScreenState extends State<InventoryListScreen> {
           : null,
       body: ModuleGuard(
         module: AppModules.inventory,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _search,
-                      decoration: const InputDecoration(
-                        hintText: 'Search items',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                      onSubmitted: (_) => _reload(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilterChip(
-                    label: const Text('Low stock'),
-                    selected: _lowOnly,
-                    onSelected: (v) {
-                      setState(() => _lowOnly = v);
-                      _reload();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: provider.items.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.inventory_2_outlined,
-                      title: 'No items',
-                      message: 'Add household consumables to track stock.',
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () async => _reload(),
-                      child: ListView(
-                        children: [for (final item in provider.items) _ItemTile(item: item)],
-                      ),
-                    ),
-            ),
-          ],
+        child: ListDetailLayout(
+          listBuilder: (context, isTwoPane) => _buildList(provider, isTwoPane),
+          detail: _selectedId == null
+              ? null
+              : InventoryDetailView(
+                  key: ValueKey(_selectedId),
+                  itemId: _selectedId!,
+                  showHeader: true,
+                  onDeleted: () {
+                    if (mounted) setState(() => _selectedId = null);
+                  },
+                ),
+          placeholder: const DetailPanePlaceholder(
+            message: 'Select an item to see its details and history.',
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildList(InventoryProvider provider, bool isTwoPane) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _search,
+                  decoration: const InputDecoration(
+                    hintText: 'Search items',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onSubmitted: (_) => _reload(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilterChip(
+                label: const Text('Low stock'),
+                selected: _lowOnly,
+                onSelected: (v) {
+                  setState(() => _lowOnly = v);
+                  _reload();
+                },
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: provider.items.isEmpty
+              ? const EmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'No items',
+                  message: 'Add household consumables to track stock.',
+                )
+              : RefreshIndicator(
+                  onRefresh: () async => _reload(),
+                  child: ListView(
+                    children: [
+                      for (final item in provider.items)
+                        _ItemTile(
+                          item: item,
+                          selected: isTwoPane && item.id == _selectedId,
+                          onTap: () => _openItem(item.id, isTwoPane),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }
 
 class _ItemTile extends StatelessWidget {
   final InventoryItem item;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _ItemTile({required this.item});
+  const _ItemTile({required this.item, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +175,7 @@ class _ItemTile extends StatelessWidget {
       if (item.isExpiringSoon) const StatusBadge('Expiring', tone: StatusTone.warning),
     ];
     return ListTile(
+      selected: selected,
       leading: const Icon(Icons.inventory_2_outlined),
       title: Text(item.name),
       subtitle: Text([
@@ -150,7 +194,7 @@ class _ItemTile extends StatelessWidget {
           ),
         ],
       ),
-      onTap: () => context.push('/inventory/${item.id}'),
+      onTap: onTap,
     );
   }
 }

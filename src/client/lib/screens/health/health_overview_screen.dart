@@ -8,8 +8,10 @@ import '../../providers/auth_provider.dart';
 import '../../providers/biometric_provider.dart';
 import '../../providers/household_provider.dart';
 import '../../widgets/empty_state.dart';
+import '../../widgets/list_detail_layout.dart';
 import '../../widgets/module_guard.dart';
 import '../../widgets/status_badge.dart';
+import 'measurement_trends_screen.dart';
 
 /// Per-member vitals overview (EP-0044): a card per measurement type with the latest reading
 /// and an in/out-of-range badge. Supervisors can switch member; everyone else is pinned to
@@ -23,6 +25,15 @@ class HealthOverviewScreen extends StatefulWidget {
 
 class _HealthOverviewScreenState extends State<HealthOverviewScreen> {
   String? _memberId;
+  String? _selectedTypeKey;
+
+  void _openType(String typeKey, bool isTwoPane) {
+    if (isTwoPane) {
+      setState(() => _selectedTypeKey = typeKey);
+    } else {
+      context.push('/health/trends?memberId=$_memberId&typeKey=$typeKey');
+    }
+  }
 
   @override
   void initState() {
@@ -98,39 +109,51 @@ class _HealthOverviewScreenState extends State<HealthOverviewScreen> {
             ),
       body: ModuleGuard(
         module: AppModules.health,
-        child: Column(
-          children: [
-            if (auth.isSupervisor) _MemberSwitcher(selected: _memberId, onChanged: _switchMember),
-            Expanded(
-              child: provider.types.isEmpty
-                  ? const EmptyState(
-                      icon: Icons.favorite_outline,
-                      title: 'No measurement types',
-                      message: 'No vitals types are configured for this household.',
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () => _memberId == null
-                          ? Future.value()
-                          : provider.loadMember(auth.householdId, _memberId!),
-                      child: ListView(
-                        padding: const EdgeInsets.all(12),
-                        children: [
-                          for (final type in provider.types)
-                            _TypeCard(
-                              type: type,
-                              latest: latest[type.key],
-                              badge: _badge(type, latest[type.key], provider.targetByKey(type.key)),
-                              onTap: _memberId == null
-                                  ? null
-                                  : () => context.push(
-                                        '/health/trends?memberId=$_memberId&typeKey=${type.key}',
-                                      ),
-                            ),
-                        ],
+        child: ListDetailLayout(
+          listBuilder: (context, isTwoPane) => Column(
+            children: [
+              if (auth.isSupervisor) _MemberSwitcher(selected: _memberId, onChanged: _switchMember),
+              Expanded(
+                child: provider.types.isEmpty
+                    ? const EmptyState(
+                        icon: Icons.favorite_outline,
+                        title: 'No measurement types',
+                        message: 'No vitals types are configured for this household.',
+                      )
+                    : RefreshIndicator(
+                        onRefresh: () => _memberId == null
+                            ? Future.value()
+                            : provider.loadMember(auth.householdId, _memberId!),
+                        child: ListView(
+                          padding: const EdgeInsets.all(12),
+                          children: [
+                            for (final type in provider.types)
+                              _TypeCard(
+                                type: type,
+                                latest: latest[type.key],
+                                badge: _badge(type, latest[type.key], provider.targetByKey(type.key)),
+                                selected: isTwoPane && type.key == _selectedTypeKey,
+                                onTap: _memberId == null
+                                    ? null
+                                    : () => _openType(type.key, isTwoPane),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
+          detail: (_selectedTypeKey == null || _memberId == null)
+              ? null
+              : MeasurementTrendsView(
+                  key: ValueKey('$_memberId/$_selectedTypeKey'),
+                  memberId: _memberId!,
+                  typeKey: _selectedTypeKey!,
+                  showHeader: true,
+                ),
+          placeholder: const DetailPanePlaceholder(
+            message: 'Select a measurement to see its trend.',
+          ),
         ),
       ),
     );
@@ -167,9 +190,16 @@ class _TypeCard extends StatelessWidget {
   final MeasurementType type;
   final Measurement? latest;
   final (String, StatusTone)? badge;
+  final bool selected;
   final VoidCallback? onTap;
 
-  const _TypeCard({required this.type, this.latest, this.badge, this.onTap});
+  const _TypeCard({
+    required this.type,
+    this.latest,
+    this.badge,
+    this.selected = false,
+    this.onTap,
+  });
 
   String _value(Measurement m) {
     final v = m.value.toStringAsFixed(type.precision);
@@ -184,6 +214,7 @@ class _TypeCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Card(
       child: ListTile(
+        selected: selected,
         leading: const Icon(Icons.monitor_heart_outlined),
         title: Text(type.displayName),
         subtitle: Text(

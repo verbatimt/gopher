@@ -47,6 +47,25 @@ Screens consume tokens via `Theme.of(context)` — **no hardcoded colors**. `the
 Both render the same destination list; selection is derived from the current route and
 navigates via `go_router`.
 
+## Canonical layouts (list-detail)
+
+Breakpoint constants live in `core/constants.dart` and follow the MD3 window size classes:
+`compactMaxWidth` (600), `mediumMinWidth` (600), `expandedMinWidth` (840), `largeMinWidth`
+(1200), plus `extendedRailMinWidth` (1000) for the rail.
+
+The list/detail features (recipes, inventory, vitals, tasks) use the canonical **list-detail**
+layout via the shared `widgets/list_detail_layout.dart` (`ListDetailLayout`):
+
+- **Compact / medium** (`width < expandedMinWidth`): single pane; tapping a row opens the detail
+  as a full-screen `go_router` route (e.g. `/recipes/:id`), preserving deep links.
+- **Expanded** (`width ≥ 840`): two panes — a fixed ~360dp list on the leading edge and the
+  selected item's detail in the trailing pane; tapping a row selects in place (no push).
+
+Each detail screen is split into a route wrapper (`XxxDetailScreen`, owns the `Scaffold`/`AppBar`)
+and a pure `XxxDetailView` (no scaffold) so the same content renders full-screen or in a pane.
+`ListDetailLayout.isTwoPane(context)` exposes the same `MediaQuery`-width decision the layout
+uses, so list rows know whether to select-in-pane or push.
+
 ## Networking
 
 `ApiClient` (transport) takes a base URL, an injectable `http.Client` (so it is testable

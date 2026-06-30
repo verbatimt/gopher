@@ -145,5 +145,40 @@ void main() {
       expect(find.widgetWithText(TextFormField, 'Quantity'), findsOneWidget);
       expect(find.text('Auto-add to grocery when low'), findsOneWidget);
     });
+
+    testWidgets('wide window opens the item in a side-by-side detail pane', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async {
+        final path = req.url.path;
+        if (path == '/api/v1/households/h/inventory') {
+          return http.Response(_env({'items': [_item('1', 'Coffee')]}), 200);
+        }
+        if (path == '/api/v1/households/h/inventory/1') {
+          return http.Response(_env({'item': _item('1', 'Coffee')}), 200);
+        }
+        if (path == '/api/v1/households/h/inventory/1/adjustments') {
+          return http.Response(_env({'adjustments': const []}), 200);
+        }
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(wrap(
+        const MediaQuery(
+          data: MediaQueryData(size: Size(1000, 800)),
+          child: InventoryListScreen(),
+        ),
+        auth,
+        mock,
+      ));
+      await tester.pumpAndSettle();
+      // Before selection the detail pane shows the empty-state placeholder.
+      expect(find.text('Nothing selected'), findsOneWidget);
+      // Selecting an item fills the detail pane in place (no full-screen push).
+      await tester.tap(find.text('Coffee'));
+      await tester.pumpAndSettle();
+      expect(find.text('History'), findsOneWidget);
+      expect(find.text('No adjustments yet.'), findsOneWidget);
+      // The list pane is still present, so the name shows in both list and pane header.
+      expect(find.text('Coffee'), findsWidgets);
+    });
   });
 }

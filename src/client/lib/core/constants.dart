@@ -11,9 +11,23 @@ class AppConstants {
     defaultValue: 'http://gopher-api.local',
   );
 
-  // Material 3 adaptive breakpoints (logical pixels).
+  // Material 3 adaptive breakpoints (logical pixels), aligned to the MD3 window
+  // size classes: compact (<600) / medium (600–839) / expanded (840–1199) /
+  // large (1200+). See material-spec/foundations/layout/applying-layout.
   /// Below this width the shell uses a bottom NavigationBar; at/above it uses a rail.
+  /// Also the compact↔medium boundary (MD3 compact = width < 600).
   static const double compactMaxWidth = 600;
+
+  /// MD3 medium window size class lower bound (600–839dp). Alias of
+  /// [compactMaxWidth] for readability at call sites.
+  static const double mediumMinWidth = 600;
+
+  /// MD3 expanded window size class lower bound (840dp). At/above this width the
+  /// list/detail features render the canonical two-pane list-detail layout.
+  static const double expandedMinWidth = 840;
+
+  /// MD3 large window size class lower bound (1200dp).
+  static const double largeMinWidth = 1200;
 
   /// At/above this width the navigation rail is shown extended (icon + label).
   static const double extendedRailMinWidth = 1000;

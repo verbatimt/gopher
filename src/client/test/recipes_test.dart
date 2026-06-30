@@ -185,5 +185,47 @@ void main() {
       expect(find.text('500 g beef'), findsOneWidget);
       expect(find.text('Brown the beef'), findsOneWidget);
     });
+
+    testWidgets('wide window opens the recipe in a side-by-side detail pane', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async {
+        if (req.url.path == '/api/v1/households/h/recipes') {
+          return http.Response(_env({'recipes': [_recipe('1', 'Pancakes')]}), 200);
+        }
+        if (req.url.path == '/api/v1/households/h/recipes/1') {
+          return http.Response(
+            _env({
+              'recipe': _recipe('1', 'Pancakes'),
+              'ingredients': [
+                {'id': 'i1', 'name': 'flour', 'quantity': '200', 'unit': 'g', 'sortOrder': 1},
+              ],
+              'steps': [
+                {'id': 's1', 'stepNumber': 1, 'instruction': 'Mix it'},
+              ],
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(wrap(
+        const MediaQuery(
+          data: MediaQueryData(size: Size(1000, 800)),
+          child: RecipeListScreen(),
+        ),
+        auth,
+        mock,
+      ));
+      await tester.pumpAndSettle();
+      // Before selection the detail pane shows the empty-state placeholder.
+      expect(find.text('Nothing selected'), findsOneWidget);
+      // Selecting a recipe fills the detail pane in place (no full-screen push).
+      await tester.tap(find.text('Pancakes'));
+      await tester.pumpAndSettle();
+      expect(find.text('200 g flour'), findsOneWidget);
+      expect(find.text('Mix it'), findsOneWidget);
+      // The list pane is still present, so the name shows in both list and pane header.
+      expect(find.text('Pancakes'), findsWidgets);
+    });
   });
 }

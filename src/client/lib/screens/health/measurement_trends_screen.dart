@@ -10,17 +10,43 @@ import '../../widgets/vitals_trend_chart.dart';
 /// Trend detail for one member + measurement type (EP-0044): a line chart over a selectable
 /// range with min/max/avg/latest summary and the target/normal band shaded, plus a target
 /// editor (supervisor, or self for an unsupervised user).
-class MeasurementTrendsScreen extends StatefulWidget {
+///
+/// Full-screen route wrapper. The content lives in [MeasurementTrendsView] so it can also be
+/// embedded as the detail pane of the vitals list-detail layout on wide windows.
+class MeasurementTrendsScreen extends StatelessWidget {
   final String memberId;
   final String typeKey;
 
   const MeasurementTrendsScreen({super.key, required this.memberId, required this.typeKey});
 
   @override
-  State<MeasurementTrendsScreen> createState() => _MeasurementTrendsScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Trend')),
+      body: MeasurementTrendsView(memberId: memberId, typeKey: typeKey, showHeader: true),
+    );
+  }
 }
 
-class _MeasurementTrendsScreenState extends State<MeasurementTrendsScreen> {
+/// Self-contained trend content (no Scaffold/AppBar). When [showHeader] is true it renders an
+/// in-body title + target editor for use inside a list-detail pane.
+class MeasurementTrendsView extends StatefulWidget {
+  final String memberId;
+  final String typeKey;
+  final bool showHeader;
+
+  const MeasurementTrendsView({
+    super.key,
+    required this.memberId,
+    required this.typeKey,
+    this.showHeader = false,
+  });
+
+  @override
+  State<MeasurementTrendsView> createState() => _MeasurementTrendsViewState();
+}
+
+class _MeasurementTrendsViewState extends State<MeasurementTrendsView> {
   int _days = 30; // 0 ⇒ all time
   MeasurementTrend? _trend;
   bool _loading = true;
@@ -29,6 +55,14 @@ class _MeasurementTrendsScreenState extends State<MeasurementTrendsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  @override
+  void didUpdateWidget(MeasurementTrendsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.memberId != widget.memberId || oldWidget.typeKey != widget.typeKey) {
+      _reload();
+    }
   }
 
   Future<void> _reload() async {
@@ -108,47 +142,59 @@ class _MeasurementTrendsScreenState extends State<MeasurementTrendsScreen> {
     final bandHigh = target?.maxTarget ?? type?.maxNormal;
     final precision = type?.precision ?? 1;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(type?.displayName ?? 'Trend'),
-        actions: [
-          if (_canEditTarget(auth))
-            IconButton(
-              tooltip: 'Set target',
-              icon: const Icon(Icons.flag_outlined),
-              onPressed: () => _editTarget(target),
+    final header = <Widget>[
+      if (widget.showHeader) ...[
+        Row(
+          children: [
+            Expanded(
+              child: Text(type?.displayName ?? 'Trend', style: Theme.of(context).textTheme.titleLarge),
             ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 7, label: Text('7d')),
-                    ButtonSegment(value: 30, label: Text('30d')),
-                    ButtonSegment(value: 90, label: Text('90d')),
-                    ButtonSegment(value: 0, label: Text('All')),
-                  ],
-                  selected: {_days},
-                  onSelectionChanged: (s) {
-                    setState(() => _days = s.first);
-                    _reload();
-                  },
-                ),
-                const SizedBox(height: 16),
-                VitalsTrendChart(
-                  series: _trend?.series ?? const [],
-                  dual: type?.isDual ?? false,
-                  bandLow: bandLow,
-                  bandHigh: bandHigh,
-                ),
-                const SizedBox(height: 16),
-                _Summary(trend: _trend, precision: precision),
-              ],
-            ),
+            if (_canEditTarget(auth))
+              IconButton(
+                tooltip: 'Set target',
+                icon: const Icon(Icons.flag_outlined),
+                onPressed: () => _editTarget(target),
+              ),
+          ],
+        ),
+        const Divider(height: 24),
+      ],
+    ];
+
+    if (_loading) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [...header, const Center(child: CircularProgressIndicator())],
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        ...header,
+        SegmentedButton<int>(
+          segments: const [
+            ButtonSegment(value: 7, label: Text('7d')),
+            ButtonSegment(value: 30, label: Text('30d')),
+            ButtonSegment(value: 90, label: Text('90d')),
+            ButtonSegment(value: 0, label: Text('All')),
+          ],
+          selected: {_days},
+          onSelectionChanged: (s) {
+            setState(() => _days = s.first);
+            _reload();
+          },
+        ),
+        const SizedBox(height: 16),
+        VitalsTrendChart(
+          series: _trend?.series ?? const [],
+          dual: type?.isDual ?? false,
+          bandLow: bandLow,
+          bandHigh: bandHigh,
+        ),
+        const SizedBox(height: 16),
+        _Summary(trend: _trend, precision: precision),
+      ],
     );
   }
 }
