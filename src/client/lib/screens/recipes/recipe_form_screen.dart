@@ -36,6 +36,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   final _prep = TextEditingController();
   final _cook = TextEditingController();
   final _tags = TextEditingController();
+  final _image = TextEditingController();
   final _calories = TextEditingController();
   final _protein = TextEditingController();
   final _carbs = TextEditingController();
@@ -57,6 +58,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       if (e.prepMinutes != null) _prep.text = '${e.prepMinutes}';
       if (e.cookMinutes != null) _cook.text = '${e.cookMinutes}';
       _tags.text = e.tags.join(', ');
+      _image.text = e.imagePath ?? '';
       if (e.calories != null) _calories.text = '${e.calories}';
       if (e.proteinGrams != null) _protein.text = _trimNum(e.proteinGrams!);
       if (e.carbsGrams != null) _carbs.text = _trimNum(e.carbsGrams!);
@@ -75,6 +77,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     _prep.dispose();
     _cook.dispose();
     _tags.dispose();
+    _image.dispose();
     _calories.dispose();
     _protein.dispose();
     _carbs.dispose();
@@ -104,6 +107,7 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       'prepMinutes': int.tryParse(_prep.text.trim()),
       'cookMinutes': int.tryParse(_cook.text.trim()),
       'tags': tags,
+      'imagePath': _image.text.trim().isEmpty ? null : _image.text.trim(),
       // Nutrition (ADR-0005): blank → null (clears on edit; omitted-as-null on create).
       'calories': int.tryParse(_calories.text.trim()),
       'proteinGrams': double.tryParse(_protein.text.trim()),
@@ -196,6 +200,17 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
               decoration: const InputDecoration(
                 labelText: 'Tags (comma-separated)',
                 border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _image,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'Image URL',
+                hintText: 'https://… (LAN-served)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.image_outlined),
               ),
             ),
             if (!_isEdit) ...[

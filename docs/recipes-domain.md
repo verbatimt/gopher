@@ -16,7 +16,8 @@ households 1───∞ recipes 1───∞ recipe_ingredients   (sort_order 
 ```
 
 - **`recipes`** — `name`, `description?`, `servings` (≥1, default 1), `prep_minutes?`,
-  `cook_minutes?`, `source?`, `image_path?`, `tags text[]` (default `{}`), `created_by`, and
+  `cook_minutes?`, `source?`, `image_path?` (a client-rendered image URL — no upload pipeline;
+  ADR-0006), `tags text[]` (default `{}`), `created_by`, and
   optional nutrition (ADR-0005): `calories integer?`, `protein_grams numeric(10,2)?`,
   `carbs_grams numeric(10,2)?`, `fat_grams numeric(10,2)?` (per-recipe totals).
   Soft-deleted (`is_active`/`deleted_at`): hidden from lists but still resolvable by id so

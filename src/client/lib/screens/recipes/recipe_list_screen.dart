@@ -10,6 +10,7 @@ import '../../providers/recipe_provider.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/list_detail_layout.dart';
 import '../../widgets/module_guard.dart';
+import '../../widgets/recipe_image.dart';
 import 'recipe_detail_screen.dart';
 
 /// Browse + search the household recipe book (EP-0047). Authoring (FAB) is shown only to
@@ -159,7 +160,7 @@ class _RecipeTile extends StatelessWidget {
     ].join(' · ');
     return ListTile(
       selected: selected,
-      leading: const Icon(Icons.restaurant_menu),
+      leading: RecipeImage(path: recipe.imagePath, height: 48, width: 48, radius: 6),
       title: Text(recipe.name),
       subtitle: Text([meta, if (recipe.tags.isNotEmpty) recipe.tags.join(', ')].join('\n')),
       isThreeLine: recipe.tags.isNotEmpty,

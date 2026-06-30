@@ -14,6 +14,7 @@ import 'package:gopher/screens/recipes/recipe_form_screen.dart';
 import 'package:gopher/screens/recipes/recipe_list_screen.dart';
 import 'package:gopher/services/auth_service.dart';
 import 'package:gopher/services/recipe_service.dart';
+import 'package:gopher/widgets/recipe_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
@@ -174,6 +175,36 @@ void main() {
       expect(find.widgetWithText(TextFormField, 'Protein (g)'), findsOneWidget);
       expect(find.text('520'), findsOneWidget); // calories prefilled
       expect(find.text('30'), findsOneWidget); // protein prefilled
+    });
+
+    testWidgets('edit form shows the image URL field prefilled', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async => http.Response('{}', 404));
+      final existing = Recipe.fromJson({..._recipe('6', 'WithImage'), 'imagePath': 'http://lan/p.jpg'});
+      await tester.pumpWidget(wrap(RecipeFormScreen(existing: existing), auth, mock));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextFormField, 'Image URL'), findsOneWidget);
+      expect(find.text('http://lan/p.jpg'), findsOneWidget);
+    });
+
+    testWidgets('detail renders the recipe image when set', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async {
+        if (req.url.path == '/api/v1/households/h/recipes/7') {
+          return http.Response(
+            _env({
+              'recipe': {..._recipe('7', 'Photo'), 'imagePath': 'http://lan/x.jpg'},
+              'ingredients': const [],
+              'steps': const [],
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(wrap(const RecipeDetailScreen(recipeId: '7'), auth, mock));
+      await tester.pumpAndSettle();
+      expect(find.byType(RecipeImage), findsOneWidget);
     });
 
     testWidgets('detail shows nutrition macros when present', (tester) async {
