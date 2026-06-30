@@ -15,6 +15,17 @@ const stepInput = t.Object({
   instruction: t.String({ minLength: 1, maxLength: 2000 }),
 });
 
+// Optional per-recipe nutrition (ADR-0005): calories + the three core macros, non-negative,
+// nullable so a PATCH can clear an individual value.
+const caloriesField = t.Optional(t.Union([t.Integer({ minimum: 0, maximum: 1000000 }), t.Null()]));
+const gramsField = t.Optional(t.Union([t.Number({ minimum: 0, maximum: 1000000 }), t.Null()]));
+const nutritionFields = {
+  calories: caloriesField,
+  proteinGrams: gramsField,
+  carbsGrams: gramsField,
+  fatGrams: gramsField,
+};
+
 export const createRecipeBody = t.Object({
   name: t.String({ minLength: 1, maxLength: 200 }),
   description: t.Optional(t.String({ maxLength: 4000 })),
@@ -24,6 +35,7 @@ export const createRecipeBody = t.Object({
   source: t.Optional(t.String({ maxLength: 500 })),
   imagePath: t.Optional(t.String({ maxLength: 500 })),
   tags: t.Optional(t.Array(t.String({ maxLength: 50 }), { maxItems: 30 })),
+  ...nutritionFields,
   ingredients: t.Optional(t.Array(ingredientInput, { maxItems: 200 })),
   steps: t.Optional(t.Array(stepInput, { maxItems: 200 })),
 });
@@ -37,6 +49,7 @@ export const updateRecipeBody = t.Object({
   source: t.Optional(t.Union([t.String({ maxLength: 500 }), t.Null()])),
   imagePath: t.Optional(t.Union([t.String({ maxLength: 500 }), t.Null()])),
   tags: t.Optional(t.Array(t.String({ maxLength: 50 }), { maxItems: 30 })),
+  ...nutritionFields,
 });
 
 export const ingredientBody = ingredientInput;

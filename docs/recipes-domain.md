@@ -1,9 +1,12 @@
 # Recipes Domain (EP-0045)
 
 Tier 8 household recipe book. **Supersedes the EP-0030 MVP exclusion** ("no recipe database …
-for MVP") per master-plan §1.2. Clean-slate; no nutrition catalog, no external import (LAN-only,
-§2.17). Foundation for recipe-driven meal planning + grocery derivation (EP-0046) and the
-recipe client (EP-0047).
+for MVP") per master-plan §1.2. Clean-slate; no external import (LAN-only, §2.17). Foundation
+for recipe-driven meal planning + grocery derivation (EP-0046) and the recipe client (EP-0047).
+
+> **Nutrition (ADR-0005):** optional per-recipe macros were later reintroduced (reversing the
+> EP-0045 §4 out-of-scope boundary) — see the `recipes` columns below. This is **not** a global
+> ingredient nutrition catalog (still excluded), and there is no per-ingredient nutrition.
 
 ## ER diagram
 
@@ -13,7 +16,9 @@ households 1───∞ recipes 1───∞ recipe_ingredients   (sort_order 
 ```
 
 - **`recipes`** — `name`, `description?`, `servings` (≥1, default 1), `prep_minutes?`,
-  `cook_minutes?`, `source?`, `image_path?`, `tags text[]` (default `{}`), `created_by`.
+  `cook_minutes?`, `source?`, `image_path?`, `tags text[]` (default `{}`), `created_by`, and
+  optional nutrition (ADR-0005): `calories integer?`, `protein_grams numeric(10,2)?`,
+  `carbs_grams numeric(10,2)?`, `fat_grams numeric(10,2)?` (per-recipe totals).
   Soft-deleted (`is_active`/`deleted_at`): hidden from lists but still resolvable by id so
   historical meal-plan references survive.
 - **`recipe_ingredients`** — free-text `name`, `quantity numeric(10,2)?`, `unit?` (free text),

@@ -32,6 +32,10 @@ function recipeDto(r: RecipeRow) {
     source: r.source,
     imagePath: r.imagePath,
     tags: r.tags,
+    calories: r.calories,
+    proteinGrams: r.proteinGrams,
+    carbsGrams: r.carbsGrams,
+    fatGrams: r.fatGrams,
     isActive: r.isActive,
     createdBy: r.createdBy,
   };
@@ -64,7 +68,14 @@ export interface StepInput {
   instruction: string;
 }
 
-export interface CreateRecipeInput {
+export interface NutritionInput {
+  calories?: number | null;
+  proteinGrams?: number | null;
+  carbsGrams?: number | null;
+  fatGrams?: number | null;
+}
+
+export interface CreateRecipeInput extends NutritionInput {
   name: string;
   description?: string;
   servings?: number;
@@ -91,6 +102,10 @@ export async function createRecipe(ctx: ActorContext, input: CreateRecipeInput) 
         source: input.source ?? null,
         imagePath: input.imagePath ?? null,
         tags: input.tags ?? [],
+        calories: input.calories ?? null,
+        proteinGrams: input.proteinGrams != null ? String(input.proteinGrams) : null,
+        carbsGrams: input.carbsGrams != null ? String(input.carbsGrams) : null,
+        fatGrams: input.fatGrams != null ? String(input.fatGrams) : null,
         createdBy: ctx.userId,
       })
       .returning();
@@ -184,7 +199,7 @@ export async function getRecipe(ctx: ActorContext, recipeId: string) {
   };
 }
 
-export interface UpdateRecipeInput {
+export interface UpdateRecipeInput extends NutritionInput {
   name?: string;
   description?: string | null;
   servings?: number;
@@ -206,6 +221,13 @@ export async function updateRecipe(ctx: ActorContext, recipeId: string, patch: U
   if (patch.source !== undefined) updates.source = patch.source;
   if (patch.imagePath !== undefined) updates.imagePath = patch.imagePath;
   if (patch.tags !== undefined) updates.tags = patch.tags;
+  if (patch.calories !== undefined) updates.calories = patch.calories;
+  if (patch.proteinGrams !== undefined)
+    updates.proteinGrams = patch.proteinGrams != null ? String(patch.proteinGrams) : null;
+  if (patch.carbsGrams !== undefined)
+    updates.carbsGrams = patch.carbsGrams != null ? String(patch.carbsGrams) : null;
+  if (patch.fatGrams !== undefined)
+    updates.fatGrams = patch.fatGrams != null ? String(patch.fatGrams) : null;
   await db.update(recipes).set(updates).where(eq(recipes.id, recipeId));
   return getRecipe(ctx, recipeId);
 }

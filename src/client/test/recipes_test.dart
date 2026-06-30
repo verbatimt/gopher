@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:gopher/core/api/api_client.dart';
 import 'package:gopher/core/constants.dart';
 import 'package:gopher/core/storage/in_memory_token_store.dart';
+import 'package:gopher/models/recipe.dart';
 import 'package:gopher/providers/auth_provider.dart';
 import 'package:gopher/providers/module_provider.dart';
 import 'package:gopher/providers/recipe_provider.dart';
@@ -158,6 +159,50 @@ void main() {
       expect(find.text('Ingredients'), findsOneWidget);
       expect(find.text('Steps'), findsOneWidget);
       expect(find.widgetWithText(TextFormField, 'Name'), findsOneWidget);
+    });
+
+    testWidgets('edit form shows nutrition fields prefilled', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async => http.Response('{}', 404));
+      // Edit mode hides the ingredient/step editors, so the form is short and the nutrition
+      // section is on-screen; it also exercises prefill from the existing recipe.
+      final existing = Recipe.fromJson({..._recipe('5', 'EditMe'), 'calories': 520, 'proteinGrams': '30'});
+      await tester.pumpWidget(wrap(RecipeFormScreen(existing: existing), auth, mock));
+      await tester.pumpAndSettle();
+      expect(find.text('Nutrition (optional)'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Calories (kcal)'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Protein (g)'), findsOneWidget);
+      expect(find.text('520'), findsOneWidget); // calories prefilled
+      expect(find.text('30'), findsOneWidget); // protein prefilled
+    });
+
+    testWidgets('detail shows nutrition macros when present', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async {
+        if (req.url.path == '/api/v1/households/h/recipes/9') {
+          return http.Response(
+            _env({
+              'recipe': {
+                ..._recipe('9', 'Stew'),
+                'calories': 520,
+                'proteinGrams': '30.00',
+                'carbsGrams': '45.50',
+                'fatGrams': '12.00',
+              },
+              'ingredients': const [],
+              'steps': const [],
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(wrap(const RecipeDetailScreen(recipeId: '9'), auth, mock));
+      await tester.pumpAndSettle();
+      expect(find.text('Nutrition'), findsOneWidget);
+      expect(find.text('520 kcal'), findsOneWidget);
+      expect(find.text('30 g protein'), findsOneWidget);
+      expect(find.text('45.5 g carbs'), findsOneWidget);
     });
 
     testWidgets('detail renders ingredients and ordered steps', (tester) async {

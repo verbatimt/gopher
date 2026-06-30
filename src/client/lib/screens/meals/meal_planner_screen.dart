@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants.dart';
 import '../../models/meal.dart';
+import '../../models/nutrition.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_provider.dart';
 import '../../providers/recipe_provider.dart';
@@ -46,6 +47,10 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<MealProvider>();
+    // Per-day nutrition rolls up the week's recipe-linked entries (ADR-0005); the recipe list
+    // is already loaded alongside the plan, so this is a cheap client-side aggregation.
+    final recipesById = {for (final r in context.watch<RecipeProvider>().recipes) r.id: r};
+    final totals = dailyTotals(provider.plan?.entries ?? const [], recipesById);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Meals'),
@@ -71,7 +76,9 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(8),
-                children: [for (var day = 0; day < 7; day++) _dayCard(context, provider, day)],
+                children: [
+                  for (var day = 0; day < 7; day++) _dayCard(context, provider, day, totals[day]),
+                ],
               ),
             ),
           ],
@@ -135,7 +142,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
     );
   }
 
-  Widget _dayCard(BuildContext context, MealProvider provider, int day) {
+  Widget _dayCard(BuildContext context, MealProvider provider, int day, NutritionTotals? total) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(8),
@@ -147,8 +154,33 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
               child: Text(weekdayNames[day], style: Theme.of(context).textTheme.titleMedium),
             ),
             for (final type in mealTypes) _slot(context, provider, day, type),
+            if (total != null && !total.isEmpty) _dayNutrition(context, total),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _dayNutrition(BuildContext context, NutritionTotals t) {
+    final theme = Theme.of(context);
+    String n(double v) => v.round().toString();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.local_fire_department_outlined,
+            size: 14,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              '${n(t.calories)} kcal · ${n(t.protein)} g P · ${n(t.carbs)} g C · ${n(t.fat)} g F',
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ),
+        ],
       ),
     );
   }

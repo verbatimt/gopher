@@ -36,6 +36,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
   final _prep = TextEditingController();
   final _cook = TextEditingController();
   final _tags = TextEditingController();
+  final _calories = TextEditingController();
+  final _protein = TextEditingController();
+  final _carbs = TextEditingController();
+  final _fat = TextEditingController();
   final List<_IngredientRow> _ingredients = [];
   final List<TextEditingController> _steps = [];
   bool _busy = false;
@@ -53,6 +57,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       if (e.prepMinutes != null) _prep.text = '${e.prepMinutes}';
       if (e.cookMinutes != null) _cook.text = '${e.cookMinutes}';
       _tags.text = e.tags.join(', ');
+      if (e.calories != null) _calories.text = '${e.calories}';
+      if (e.proteinGrams != null) _protein.text = _trimNum(e.proteinGrams!);
+      if (e.carbsGrams != null) _carbs.text = _trimNum(e.carbsGrams!);
+      if (e.fatGrams != null) _fat.text = _trimNum(e.fatGrams!);
     } else {
       _ingredients.add(_IngredientRow());
       _steps.add(TextEditingController());
@@ -67,6 +75,10 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
     _prep.dispose();
     _cook.dispose();
     _tags.dispose();
+    _calories.dispose();
+    _protein.dispose();
+    _carbs.dispose();
+    _fat.dispose();
     for (final i in _ingredients) {
       i.dispose();
     }
@@ -92,6 +104,11 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       'prepMinutes': int.tryParse(_prep.text.trim()),
       'cookMinutes': int.tryParse(_cook.text.trim()),
       'tags': tags,
+      // Nutrition (ADR-0005): blank → null (clears on edit; omitted-as-null on create).
+      'calories': int.tryParse(_calories.text.trim()),
+      'proteinGrams': double.tryParse(_protein.text.trim()),
+      'carbsGrams': double.tryParse(_carbs.text.trim()),
+      'fatGrams': double.tryParse(_fat.text.trim()),
     };
 
     bool ok;
@@ -190,6 +207,24 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
               for (var i = 0; i < _steps.length; i++) _stepRow(i),
             ],
             const SizedBox(height: 24),
+            Text('Nutrition (optional)', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _numField(_calories, 'Calories (kcal)')),
+                const SizedBox(width: 12),
+                Expanded(child: _numField(_protein, 'Protein (g)')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _numField(_carbs, 'Carbs (g)')),
+                const SizedBox(width: 12),
+                Expanded(child: _numField(_fat, 'Fat (g)')),
+              ],
+            ),
+            const SizedBox(height: 24),
             FilledButton(
               onPressed: _busy ? null : _submit,
               child: _busy
@@ -201,6 +236,15 @@ class _RecipeFormScreenState extends State<RecipeFormScreen> {
       ),
     );
   }
+
+  static String _trimNum(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+
+  Widget _numField(TextEditingController c, String label) => TextFormField(
+        controller: c,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      );
 
   Widget _ingredientRow(int i) {
     final row = _ingredients[i];

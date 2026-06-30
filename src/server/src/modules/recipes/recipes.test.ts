@@ -190,6 +190,35 @@ describe('soft-delete', () => {
   });
 });
 
+describe('nutrition (ADR-0005)', () => {
+  it('round-trips per-recipe nutrition on create + PATCH and clears a macro with null', async () => {
+    const created = await call('POST', base(), {
+      token: ownerToken,
+      body: { name: 'NutriBowl', calories: 520, proteinGrams: 30, carbsGrams: 45.5, fatGrams: 12 },
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.result.recipe.id;
+    expect(created.body.result.recipe.calories).toBe(520);
+    expect(Number(created.body.result.recipe.proteinGrams)).toBe(30);
+    expect(Number(created.body.result.recipe.carbsGrams)).toBe(45.5);
+    expect(Number(created.body.result.recipe.fatGrams)).toBe(12);
+
+    // PATCH updates calories and clears fat; the untouched macro is preserved.
+    const patched = await call('PATCH', `${base()}/${id}`, {
+      token: ownerToken,
+      body: { calories: 600, fatGrams: null },
+    });
+    expect(patched.status).toBe(200);
+    expect(patched.body.result.recipe.calories).toBe(600);
+    expect(patched.body.result.recipe.fatGrams).toBeNull();
+    expect(Number(patched.body.result.recipe.proteinGrams)).toBe(30);
+
+    // Authoring nutrition still requires meals:write.
+    const kid = await call('PATCH', `${base()}/${id}`, { token: kidToken, body: { calories: 1 } });
+    expect(kid.status).toBe(403);
+  });
+});
+
 describe('access control', () => {
   it('a supervised user cannot author but can read', async () => {
     const create = await call('POST', base(), { token: kidToken, body: { name: 'KidRecipe' } });

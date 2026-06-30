@@ -213,6 +213,10 @@ class _RecipeDetailViewState extends State<RecipeDetailView> {
             padding: const EdgeInsets.only(top: 8),
             child: Wrap(spacing: 6, children: [for (final t in r.tags) Chip(label: Text(t))]),
           ),
+        if (r.hasNutrition) ...[
+          const SizedBox(height: 12),
+          _NutritionSummary(recipe: r),
+        ],
         const Divider(height: 32),
         _SectionTitle('Ingredients', onAdd: canAuthor ? _addIngredient : null),
         if (detail.ingredients.isEmpty)
@@ -276,6 +280,35 @@ class _RecipeDetailViewState extends State<RecipeDetailView> {
                 ),
             ],
           ),
+      ],
+    );
+  }
+}
+
+/// Per-recipe nutrition totals (ADR-0005), shown as labelled chips.
+class _NutritionSummary extends StatelessWidget {
+  final Recipe recipe;
+
+  const _NutritionSummary({required this.recipe});
+
+  static String _g(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final items = <String>[
+      if (recipe.calories != null) '${recipe.calories} kcal',
+      if (recipe.proteinGrams != null) '${_g(recipe.proteinGrams!)} g protein',
+      if (recipe.carbsGrams != null) '${_g(recipe.carbsGrams!)} g carbs',
+      if (recipe.fatGrams != null) '${_g(recipe.fatGrams!)} g fat',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Nutrition', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, runSpacing: 4, children: [for (final s in items) Chip(label: Text(s))]),
       ],
     );
   }

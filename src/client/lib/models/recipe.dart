@@ -65,6 +65,11 @@ class Recipe {
   final String? source;
   final String? imagePath;
   final List<String> tags;
+  // Optional per-recipe nutrition (ADR-0005). Grams arrive as numeric strings (Postgres numeric).
+  final int? calories;
+  final double? proteinGrams;
+  final double? carbsGrams;
+  final double? fatGrams;
   final bool isActive;
 
   const Recipe({
@@ -77,8 +82,19 @@ class Recipe {
     this.source,
     this.imagePath,
     this.tags = const [],
+    this.calories,
+    this.proteinGrams,
+    this.carbsGrams,
+    this.fatGrams,
     this.isActive = true,
   });
+
+  /// Whether any nutrition value is present (so the UI can hide the section entirely).
+  bool get hasNutrition =>
+      calories != null || proteinGrams != null || carbsGrams != null || fatGrams != null;
+
+  static double? _toDouble(Object? v) =>
+      v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
 
   factory Recipe.fromJson(Map<String, dynamic> json) => Recipe(
         id: json['id'] as String,
@@ -90,6 +106,10 @@ class Recipe {
         source: json['source'] as String?,
         imagePath: json['imagePath'] as String?,
         tags: ((json['tags'] as List?) ?? const []).map((e) => e.toString()).toList(),
+        calories: (json['calories'] as num?)?.toInt(),
+        proteinGrams: _toDouble(json['proteinGrams']),
+        carbsGrams: _toDouble(json['carbsGrams']),
+        fatGrams: _toDouble(json['fatGrams']),
         isActive: json['isActive'] as bool? ?? true,
       );
 }

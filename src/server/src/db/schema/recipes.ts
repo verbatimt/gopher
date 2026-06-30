@@ -25,6 +25,12 @@ export const recipes = pgTable('recipes', {
   source: text(),
   imagePath: text(),
   tags: text().array().notNull().default(sql`'{}'::text[]`),
+  // Optional per-recipe nutrition (EP-0045 reversal, ADR-0005): calories + the three core
+  // macros. numeric (never float) for grams; still no global ingredient nutrition catalog.
+  calories: integer(),
+  proteinGrams: numeric({ precision: 10, scale: 2 }),
+  carbsGrams: numeric({ precision: 10, scale: 2 }),
+  fatGrams: numeric({ precision: 10, scale: 2 }),
   createdBy: uuid(),
 });
 
