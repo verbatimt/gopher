@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants.dart';
@@ -39,7 +40,17 @@ class _RewardsScreenState extends State<RewardsScreen> {
     final ownBalance = provider.ownBalance.balance;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Rewards'), actions: const [NotificationBell()]),
+      appBar: AppBar(
+        title: const Text('Rewards'),
+        actions: [
+          IconButton(
+            tooltip: 'Reward store',
+            icon: const Icon(Icons.storefront_outlined),
+            onPressed: () => context.push('/rewards/store'),
+          ),
+          const NotificationBell(),
+        ],
+      ),
       body: ModuleGuard(
         module: AppModules.rewards,
         child: RefreshIndicator(

@@ -11,6 +11,7 @@ import 'package:gopher/providers/household_provider.dart';
 import 'package:gopher/providers/module_provider.dart';
 import 'package:gopher/providers/notification_provider.dart';
 import 'package:gopher/providers/reward_provider.dart';
+import 'package:gopher/screens/rewards/reward_store_screen.dart';
 import 'package:gopher/screens/rewards/rewards_screen.dart';
 import 'package:gopher/services/auth_service.dart';
 import 'package:gopher/services/household_service.dart';
@@ -205,6 +206,114 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byTooltip('Approve'), findsOneWidget);
       expect(find.byTooltip('Reject'), findsOneWidget);
+    });
+  });
+
+  group('RewardStoreScreen', () {
+    Future<AuthProvider> authWithRole(String role) async {
+      final store = InMemoryTokenStore();
+      final mock = MockClient((req) async {
+        if (req.url.path == '/api/v1/auth/login') {
+          return http.Response(
+            _env({
+              'accessToken': _jwt({'householdId': 'h', 'roles': role}),
+              'user': {'id': 'u', 'email': 'a@b.c', 'displayName': 'Owner'},
+            }),
+            200,
+          );
+        }
+        return http.Response('{}', 404);
+      });
+      final auth = AuthProvider(
+        tokenStore: store,
+        authService: AuthService(ApiClient(baseUrl: 'http://t', client: mock, tokenStore: store)),
+      );
+      await auth.login('a@b.c', 'pw');
+      return auth;
+    }
+
+    Widget wrap(Widget child, AuthProvider auth, MockClient mock) {
+      final modules = ModuleProvider()..setActive(const [AppModules.rewards]);
+      return MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthProvider>.value(value: auth),
+          ChangeNotifierProvider<ModuleProvider>.value(value: modules),
+          ChangeNotifierProvider<RewardProvider>.value(
+            value: RewardProvider(RewardService(_client(mock))),
+          ),
+        ],
+        child: MaterialApp(home: child),
+      );
+    }
+
+    MockClient storeMock(int balance, List<Map<String, dynamic>> items) => MockClient((req) async {
+          final p = req.url.path;
+          if (p == '/api/v1/households/h/rewards/me') return http.Response(_env({'rewards': _bal(balance)}), 200);
+          if (p.endsWith('/transactions')) return http.Response(_env({'transactions': const []}), 200);
+          if (p.endsWith('/reward-store')) return http.Response(_env({'items': items}), 200);
+          return http.Response('{}', 404);
+        });
+
+    testWidgets('renders the catalog + balance and gates Redeem by affordability', (tester) async {
+      final auth = await authWithRole('supervised_user');
+      await tester.pumpWidget(wrap(
+        const RewardStoreScreen(),
+        auth,
+        storeMock(100, [_item('i1', 'Toy', 50), _item('i2', 'Big prize', 200)]),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('100 points'), findsOneWidget); // balance header
+      expect(find.text('Toy'), findsOneWidget);
+      expect(find.text('Big prize'), findsOneWidget);
+      final buttons =
+          tester.widgetList<FilledButton>(find.widgetWithText(FilledButton, 'Redeem')).toList();
+      expect(buttons.length, 2);
+      expect(buttons.where((b) => b.onPressed != null).length, 1); // only the affordable one
+      expect(buttons.where((b) => b.onPressed == null).length, 1);
+    });
+
+    testWidgets('tapping Redeem posts a pending redemption', (tester) async {
+      final auth = await authWithRole('supervised_user');
+      var redeemed = false;
+      final mock = MockClient((req) async {
+        final p = req.url.path;
+        if (p.endsWith('/redeem') && req.method == 'POST') {
+          redeemed = true;
+          return http.Response(_env({'transaction': _tx('t2', 'redeem', -50, 'pending')}), 201);
+        }
+        if (p == '/api/v1/households/h/rewards/me') return http.Response(_env({'rewards': _bal(100)}), 200);
+        if (p.endsWith('/transactions')) return http.Response(_env({'transactions': const []}), 200);
+        if (p.endsWith('/reward-store')) return http.Response(_env({'items': [_item('i1', 'Toy', 50)]}), 200);
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(wrap(const RewardStoreScreen(), auth, mock));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Redeem'));
+      await tester.pumpAndSettle();
+      expect(redeemed, isTrue);
+      expect(find.textContaining('pending approval'), findsOneWidget);
+    });
+
+    testWidgets('supervisor sees management; a supervised member does not', (tester) async {
+      final supervisor = await authWithRole('supervising_user');
+      await tester.pumpWidget(wrap(
+        const RewardStoreScreen(),
+        supervisor,
+        storeMock(100, [_item('i1', 'Toy', 50)]),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FloatingActionButton, 'New item'), findsOneWidget);
+      expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+
+      final member = await authWithRole('supervised_user');
+      await tester.pumpWidget(wrap(
+        const RewardStoreScreen(),
+        member,
+        storeMock(100, [_item('i1', 'Toy', 50)]),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FloatingActionButton, 'New item'), findsNothing);
+      expect(find.byType(PopupMenuButton<String>), findsNothing);
     });
   });
 }

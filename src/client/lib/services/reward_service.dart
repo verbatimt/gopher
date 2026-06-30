@@ -17,6 +17,9 @@ class RewardService {
       .map((e) => RewardTransaction.fromJson((e as Map).cast<String, dynamic>()))
       .toList();
 
+  RewardStoreItem _item(dynamic r) =>
+      RewardStoreItem.fromJson(((r as Map)['item'] as Map).cast<String, dynamic>());
+
   Future<RewardBalance> myBalance(String householdId) =>
       _api.getEnveloped('${_base(householdId)}/rewards/me', _balance);
 
@@ -35,6 +38,20 @@ class RewardService {
       return list.map((e) => RewardStoreItem.fromJson((e as Map).cast<String, dynamic>())).toList();
     });
   }
+
+  /// Supervisor (rewards:manage) catalog management.
+  Future<RewardStoreItem> createStoreItem(String householdId, Map<String, dynamic> body) =>
+      _api.postEnveloped('${_base(householdId)}/reward-store', body, _item);
+
+  Future<RewardStoreItem> updateStoreItem(
+    String householdId,
+    String itemId,
+    Map<String, dynamic> body,
+  ) =>
+      _api.patchEnveloped('${_base(householdId)}/reward-store/$itemId', body, _item);
+
+  Future<void> deactivateStoreItem(String householdId, String itemId) =>
+      _api.deleteEnveloped('${_base(householdId)}/reward-store/$itemId', (_) {});
 
   Future<RewardTransaction> redeem(String householdId, String itemId) {
     return _api.postEnveloped(

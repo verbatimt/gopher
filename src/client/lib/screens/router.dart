@@ -29,6 +29,7 @@ import 'medications/medication_form_screen.dart';
 import 'medications/medication_list_screen.dart';
 import 'more_screen.dart';
 import 'notifications/notifications_screen.dart';
+import 'rewards/reward_store_screen.dart';
 import 'rewards/rewards_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 import 'settings/audit_log_screen.dart';
@@ -110,6 +111,7 @@ GoRouter buildRouter(AuthProvider auth) {
         ),
       ),
       GoRoute(path: '/rewards', builder: (context, state) => const RewardsScreen()),
+      GoRoute(path: '/rewards/store', builder: (context, state) => const RewardStoreScreen()),
       GoRoute(path: '/meals', builder: (context, state) => const MealPlannerScreen()),
       GoRoute(path: '/grocery', builder: (context, state) => const GroceryScreen()),
       GoRoute(path: '/recipes', builder: (context, state) => const RecipeListScreen()),

@@ -67,6 +67,45 @@ class RewardProvider extends BaseProvider {
     return true;
   }
 
+  /// Supervisor (rewards:manage): create a catalog item, then refresh the store.
+  Future<bool> createStoreItem(Map<String, dynamic> body) async {
+    final h = _householdId;
+    if (h == null) return false;
+    final ok = await runGuarded(() async {
+      await _service.createStoreItem(h, body);
+      _store = await _service.store(h);
+      return true;
+    });
+    notifyListeners();
+    return ok ?? false;
+  }
+
+  /// Supervisor (rewards:manage): update a catalog item, then refresh the store.
+  Future<bool> updateStoreItem(String itemId, Map<String, dynamic> body) async {
+    final h = _householdId;
+    if (h == null) return false;
+    final ok = await runGuarded(() async {
+      await _service.updateStoreItem(h, itemId, body);
+      _store = await _service.store(h);
+      return true;
+    });
+    notifyListeners();
+    return ok ?? false;
+  }
+
+  /// Supervisor (rewards:manage): soft-deactivate a catalog item, then refresh the store.
+  Future<bool> deactivateStoreItem(String itemId) async {
+    final h = _householdId;
+    if (h == null) return false;
+    final ok = await runGuarded(() async {
+      await _service.deactivateStoreItem(h, itemId);
+      _store = await _service.store(h);
+      return true;
+    });
+    notifyListeners();
+    return ok ?? false;
+  }
+
   Future<bool> adjust(String memberId, int amount, String notes) async {
     final h = _householdId;
     if (h == null) return false;
