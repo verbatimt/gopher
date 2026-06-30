@@ -59,6 +59,25 @@ The script: builds `gopher-api` (linux/arm64) and the Flutter web bundle
 the role/permission seed inside the API container. Overridable via `REMOTE_HOST`,
 `REMOTE_USER`, `PLATFORM`, `API_BASE_URL`, `MACVLAN_NET`.
 
+## Web caching (cache busting)
+
+`nginx.conf` sets `Cache-Control` per asset type so a redeploy is picked up without a manual
+cache clear:
+
+- `index.html`, `flutter_bootstrap.js`, `flutter.js`, `main.dart.js`,
+  `flutter_service_worker.js`, `version.json`, and other `*.js`/`*.wasm`/`*.json` →
+  **revalidate** (`no-cache`/`no-store, must-revalidate`). The browser always re-fetches these,
+  so the new build — and the new `serviceWorkerVersion` baked into `flutter_bootstrap.js` (a
+  per-build hash) — loads on the next visit; the updated service worker then refreshes its
+  cached resources.
+- `canvaskit/*` (SDK-versioned, immutable) → `public, max-age=31536000, immutable`.
+- media/fonts/icons (`png|jpg|svg|ico|ttf|woff2|…`) → `public, max-age=86400`.
+
+No build-id stamp is added to `deploy.sh` — Flutter's `serviceWorkerVersion` already changes
+every build and the entrypoints are no-cache, which is the cache key. Verify with
+`curl -I http://gopher.local/main.dart.js` (expect `no-cache`) and
+`curl -I http://gopher.local/canvaskit/canvaskit.js` (expect `immutable`).
+
 ## Client configuration
 
 - **Web** is served same-origin from `gopher.local` (calls relative `/api`, `/ws`).
