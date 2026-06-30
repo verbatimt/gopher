@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/app_notification.dart';
@@ -79,7 +80,17 @@ class _NotificationTile extends StatelessWidget {
         style: TextStyle(fontWeight: unread ? FontWeight.w600 : FontWeight.w400),
       ),
       subtitle: notification.body != null ? Text(notification.body!) : null,
-      onTap: unread ? () => context.read<NotificationProvider>().markRead([notification.id]) : null,
+      onTap: () => _onTap(context),
     );
+  }
+
+  /// Mark read (if unread) and deep-link to the source entity when the notification is
+  /// routable; otherwise just mark it read.
+  void _onTap(BuildContext context) {
+    if (!notification.isRead) {
+      context.read<NotificationProvider>().markRead([notification.id]);
+    }
+    final route = notification.targetRoute;
+    if (route != null) context.push(route);
   }
 }

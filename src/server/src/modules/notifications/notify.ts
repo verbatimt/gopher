@@ -42,6 +42,9 @@ export async function notify(
       type: row!.type,
       title: row!.title,
       body: row!.body,
+      // Routing context so a live notification is deep-linkable without a reload.
+      sourceEntityType: row!.sourceEntityType,
+      sourceEntityId: row!.sourceEntityId,
       createdAt: row!.createdAt,
     },
   });

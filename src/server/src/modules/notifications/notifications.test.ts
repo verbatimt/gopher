@@ -102,17 +102,24 @@ describe('notify', () => {
     await handleWsMessage(ws, JSON.stringify({ type: 'auth', token }));
     expect(received.some((m) => m.type === 'auth_ok')).toBe(true);
 
+    const taskId = '11111111-1111-1111-1111-111111111111';
     const row = await notify({
       householdId,
       recipientMemberId: memberId,
       type: NotificationTypes.taskAssigned,
       title: 'A task was assigned',
       body: 'Take out the trash',
+      sourceEntityType: 'task',
+      sourceEntityId: taskId,
     });
     expect(row.id).toBeTruthy();
     expect(row.isRead).toBe(false);
 
-    expect(received.some((m) => m.type === RealtimeEvents.notificationNew)).toBe(true);
+    const event = received.find((m) => m.type === RealtimeEvents.notificationNew);
+    expect(event).toBeTruthy();
+    // Routing context rides along so a live notification is deep-linkable without a reload.
+    expect(event.payload.sourceEntityType).toBe('task');
+    expect(event.payload.sourceEntityId).toBe(taskId);
     closeConnection(ws);
   });
 });
@@ -159,6 +166,28 @@ describe('GET /notifications', () => {
     expect((page2.body.result.notifications as unknown[]).length).toBe(0);
 
     expect(b.id).toBeTruthy();
+  });
+
+  it('returns source entity routing fields in the DTO', async () => {
+    const schedId = '22222222-2222-2222-2222-222222222222';
+    await notify({
+      householdId,
+      recipientMemberId: memberId,
+      type: NotificationTypes.medicationReminder,
+      title: 'Time for your meds',
+      sourceEntityType: 'medication_schedule',
+      sourceEntityId: schedId,
+    });
+
+    const list = await call('GET', '/api/v1/notifications', { token });
+    const item = (
+      list.body.result.notifications as Array<{
+        sourceEntityType: string | null;
+        sourceEntityId: string | null;
+      }>
+    )[0];
+    expect(item!.sourceEntityType).toBe('medication_schedule');
+    expect(item!.sourceEntityId).toBe(schedId);
   });
 });
 
