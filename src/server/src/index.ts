@@ -6,7 +6,6 @@ import { logger } from './observability/logger.ts';
 import { startBus } from './realtime/bus.ts';
 import { registerAllowanceScheduler } from './workers/allowance-granter.ts';
 import { registerMedicationScanScheduler } from './workers/medication-reminders.ts';
-import { registerMoneyAllowanceScheduler } from './workers/money-allowance-granter.ts';
 import { registerGenerationScheduler } from './workers/recurring-task-generator.ts';
 
 export const app = createApp();
@@ -20,8 +19,6 @@ if (import.meta.main) {
   registerMedicationScanScheduler();
   // Background worker: grant recurring point allowances on schedule.
   registerAllowanceScheduler();
-  // Background worker: grant recurring money allowances (records expenses).
-  registerMoneyAllowanceScheduler();
   app.listen(config.port, () => {
     logger.info('gopher-api started', { port: config.port, env: config.nodeEnv });
   });

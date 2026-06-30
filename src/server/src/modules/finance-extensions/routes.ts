@@ -1,3 +1,8 @@
+// DORMANT (EP-0036 retired from active scope, 2026-06-30): this plugin is no longer mounted
+// in app.ts — Budgets/Expenses/Money-allowances are not part of the active product surface.
+// Tables and schema are kept (no destructive drop migration); code left in place pending a
+// later cleanup, not extended. See docs/adr/ADR-0004-budgets-expenses-retired-dormant.md.
+//
 // Household finance-extensions HTTP surface (/api/v1/households/:id/...). Reads require
 // finance:read, writes finance:write. SupervisedUser holds neither → 403 on every endpoint.
 

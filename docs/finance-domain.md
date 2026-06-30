@@ -20,6 +20,14 @@ money type **`numeric(12, 2)`**. The two are intentionally distinct (engine = pr
 forecasting; extensions = manual day-to-day budgeting) and are **not merged**. Their category
 sets are *related, not shared*; any cross-feature reporting would need an explicit mapping.
 
+> **Status (2026-06-30): EP-0036 retired from active scope.** Budgets/expenses/money-allowances
+> were not requested and don't integrate with the forecasting engine, so their user-facing
+> surface is removed — the client UI (`/budgets`, `/expenses`) and the server `financeExtPlugin`
+> are gone/unmounted, and the money-allowance worker is no longer registered. The
+> `numeric(12, 2)` tables are kept **dormant** (no destructive DROP migration; rows preserved).
+> The forecasting engine described below is unaffected. See
+> `docs/adr/ADR-0004-budgets-expenses-retired-dormant.md`.
+
 ## Naming notes
 
 Two fields are renamed to avoid SQL reserved words (documented so callers aren't surprised):

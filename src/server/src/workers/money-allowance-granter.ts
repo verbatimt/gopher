@@ -1,3 +1,7 @@
+// DORMANT (EP-0036 retired from active scope, 2026-06-30): no longer registered in index.ts.
+// Kept (not extended) alongside the dormant money_allowances/expenses tables; would record
+// expenses if re-enabled. See docs/adr/ADR-0004-budgets-expenses-retired-dormant.md.
+//
 // Money-allowance granter worker (EP-0036). For each active money allowance it expands the
 // cadence over the half-open window (last_granted_at, now], records one expense per occurrence
 // attributed to the member, and advances last_granted_at — so a re-run grants nothing

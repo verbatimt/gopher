@@ -12,8 +12,6 @@ import 'calendar/calendar_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'finance/finance_screen.dart';
 import 'finance/forecast_detail_screen.dart';
-import 'finances/budgets_screen.dart';
-import 'finances/expenses_screen.dart';
 import 'health/health_overview_screen.dart';
 import 'health/measurement_form_screen.dart';
 import 'health/measurement_list_screen.dart';
@@ -145,8 +143,6 @@ GoRouter buildRouter(AuthProvider auth) {
         builder: (context, state) =>
             ForecastDetailScreen(forecastId: state.pathParameters['forecastId']!),
       ),
-      GoRoute(path: '/budgets', builder: (context, state) => const BudgetsScreen()),
-      GoRoute(path: '/expenses', builder: (context, state) => const ExpensesScreen()),
       ShellRoute(
         builder: (context, state, child) => AppShell(location: state.uri.path, child: child),
         routes: [

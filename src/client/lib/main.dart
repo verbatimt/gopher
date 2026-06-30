@@ -10,7 +10,6 @@ import 'core/theme/app_theme.dart';
 import 'providers/audit_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/biometric_provider.dart';
-import 'providers/budget_provider.dart';
 import 'providers/calendar_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/finance_provider.dart';
@@ -28,7 +27,6 @@ import 'providers/ws_provider.dart';
 import 'services/audit_service.dart';
 import 'services/auth_service.dart';
 import 'services/biometric_service.dart';
-import 'services/budget_service.dart';
 import 'services/calendar_service.dart';
 import 'services/dashboard_service.dart';
 import 'services/finance_service.dart';
@@ -74,7 +72,6 @@ class _GopherAppState extends State<GopherApp> {
   late final InventoryProvider _inventory;
   late final AuditProvider _audit;
   late final FinanceProvider _finance;
-  late final BudgetProvider _budgets;
   late final DashboardProvider _dashboard;
   late final GoRouter _router;
 
@@ -101,7 +98,6 @@ class _GopherAppState extends State<GopherApp> {
     _inventory = InventoryProvider(InventoryService(_apiClient));
     _audit = AuditProvider(AuditService(_apiClient));
     _finance = FinanceProvider(FinanceService(_apiClient));
-    _budgets = BudgetProvider(BudgetService(_apiClient));
     _dashboard = DashboardProvider(DashboardService(_apiClient))..bindEvents(_ws.events);
     _router = buildRouter(_auth);
 
@@ -159,7 +155,6 @@ class _GopherAppState extends State<GopherApp> {
         ChangeNotifierProvider<InventoryProvider>.value(value: _inventory),
         ChangeNotifierProvider<AuditProvider>.value(value: _audit),
         ChangeNotifierProvider<FinanceProvider>.value(value: _finance),
-        ChangeNotifierProvider<BudgetProvider>.value(value: _budgets),
         ChangeNotifierProvider<DashboardProvider>.value(value: _dashboard),
       ],
       child: MaterialApp.router(

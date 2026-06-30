@@ -101,12 +101,6 @@ class MoreScreen extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/finance'),
             ),
-            ListTile(
-              leading: const Icon(Icons.pie_chart_outline),
-              title: const Text('Budgets & expenses'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/budgets'),
-            ),
           ],
           const Divider(),
           ListTile(

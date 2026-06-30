@@ -32,7 +32,7 @@ const List<_ModuleInfo> _moduleCatalog = [
   _ModuleInfo(AppModules.meals, 'Meals', 'Meal planning and groceries', Icons.restaurant_outlined),
   _ModuleInfo(AppModules.inventory, 'Inventory', 'Household inventory and stock',
       Icons.inventory_2_outlined),
-  _ModuleInfo(AppModules.finance, 'Finance', 'Budgets, expenses, and forecasting',
+  _ModuleInfo(AppModules.finance, 'Finance', 'Forecasting and financial planning',
       Icons.account_balance_wallet_outlined),
 ];
 

@@ -15,7 +15,6 @@ import { biometricsPlugin } from './modules/biometrics/routes.ts';
 import { calendarPlugin } from './modules/calendar/routes.ts';
 import { dashboardPlugin } from './modules/dashboard/routes.ts';
 import { financePlugin } from './modules/finance/routes.ts';
-import { financeExtPlugin } from './modules/finance-extensions/routes.ts';
 import { householdsPlugin } from './modules/households/routes.ts';
 import { inventoryPlugin } from './modules/inventory/routes.ts';
 import { mealsPlugin } from './modules/meals/routes.ts';
@@ -116,8 +115,7 @@ export function createApp() {
           .use(inventoryPlugin)
           .use(auditPlugin)
           .use(dashboardPlugin)
-          .use(financePlugin)
-          .use(financeExtPlugin),
+          .use(financePlugin),
       )
   );
 }
