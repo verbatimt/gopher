@@ -16,6 +16,7 @@ export const createItemBody = t.Object({
   barcode: t.Optional(t.Union([t.String({ maxLength: 100 }), t.Null()])),
   autoAddToGrocery: t.Optional(t.Boolean()),
   notes: t.Optional(t.Union([t.String({ maxLength: 2000 }), t.Null()])),
+  imagePath: t.Optional(t.Union([t.String({ maxLength: 500 }), t.Null()])),
 });
 
 export const updateItemBody = t.Object({
@@ -28,6 +29,7 @@ export const updateItemBody = t.Object({
   barcode: t.Optional(t.Union([t.String({ maxLength: 100 }), t.Null()])),
   autoAddToGrocery: t.Optional(t.Boolean()),
   notes: t.Optional(t.Union([t.String({ maxLength: 2000 }), t.Null()])),
+  imagePath: t.Optional(t.Union([t.String({ maxLength: 500 }), t.Null()])),
 });
 
 export const adjustBody = t.Object({

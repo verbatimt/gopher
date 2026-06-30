@@ -14,7 +14,7 @@ import 'package:gopher/screens/recipes/recipe_form_screen.dart';
 import 'package:gopher/screens/recipes/recipe_list_screen.dart';
 import 'package:gopher/services/auth_service.dart';
 import 'package:gopher/services/recipe_service.dart';
-import 'package:gopher/widgets/recipe_image.dart';
+import 'package:gopher/widgets/remote_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
@@ -204,7 +204,7 @@ void main() {
       });
       await tester.pumpWidget(wrap(const RecipeDetailScreen(recipeId: '7'), auth, mock));
       await tester.pumpAndSettle();
-      expect(find.byType(RecipeImage), findsOneWidget);
+      expect(find.byType(RemoteImage), findsOneWidget);
     });
 
     testWidgets('detail shows nutrition macros when present', (tester) async {

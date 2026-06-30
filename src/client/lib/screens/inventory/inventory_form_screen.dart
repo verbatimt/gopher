@@ -26,6 +26,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
   final _location = TextEditingController();
   final _threshold = TextEditingController();
   final _notes = TextEditingController();
+  final _image = TextEditingController();
   DateTime? _expiresAt;
   bool _autoAdd = true;
   bool _busy = false;
@@ -43,6 +44,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
       _location.text = e.location ?? '';
       if (e.lowThreshold != null) _threshold.text = trimNum(e.lowThreshold!);
       _notes.text = e.notes ?? '';
+      _image.text = e.imagePath ?? '';
       _autoAdd = e.autoAddToGrocery;
       if (e.expiresAt != null) _expiresAt = DateTime.tryParse(e.expiresAt!);
     }
@@ -57,6 +59,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
     _location.dispose();
     _threshold.dispose();
     _notes.dispose();
+    _image.dispose();
     super.dispose();
   }
 
@@ -77,6 +80,7 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
       'expiresAt': _ymd(_expiresAt),
       'autoAddToGrocery': _autoAdd,
       'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+      'imagePath': _image.text.trim().isEmpty ? null : _image.text.trim(),
       if (!_isEdit) 'quantity': double.tryParse(_quantity.text.trim()) ?? 0,
     };
     final ok = _isEdit
@@ -178,6 +182,17 @@ class _InventoryFormScreenState extends State<InventoryFormScreen> {
               controller: _notes,
               maxLines: 2,
               decoration: const InputDecoration(labelText: 'Notes', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _image,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'Image URL',
+                hintText: 'https://… (LAN-served)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.image_outlined),
+              ),
             ),
             const SizedBox(height: 24),
             FilledButton(

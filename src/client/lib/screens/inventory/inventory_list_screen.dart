@@ -10,6 +10,7 @@ import '../../providers/inventory_provider.dart';
 import '../../widgets/empty_state.dart';
 import '../../widgets/list_detail_layout.dart';
 import '../../widgets/module_guard.dart';
+import '../../widgets/remote_image.dart';
 import '../../widgets/status_badge.dart';
 import 'inventory_adjust.dart';
 import 'inventory_detail_screen.dart';
@@ -176,7 +177,13 @@ class _ItemTile extends StatelessWidget {
     ];
     return ListTile(
       selected: selected,
-      leading: const Icon(Icons.inventory_2_outlined),
+      leading: RemoteImage(
+        path: item.imagePath,
+        height: 48,
+        width: 48,
+        radius: 6,
+        placeholderIcon: Icons.inventory_2_outlined,
+      ),
       title: Text(item.name),
       subtitle: Text([
         item.quantityLabel,

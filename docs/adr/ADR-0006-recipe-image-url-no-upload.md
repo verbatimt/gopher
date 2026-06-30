@@ -29,10 +29,19 @@ missing, broken, or unreachable URL degrades to the recipe icon rather than cras
 **No upload endpoint, no storage, no new dependency.** The image is expected to be a reachable
 URL (typically LAN-served); cross-origin hosts must allow the image to load.
 
+## Reuse — inventory items
+
+The same approach was extended to **inventory items**: `inventory_items` gained a nullable
+`image_path` column (additive migration `0022`), the create/update validators + service accept
+`imagePath`, and the form/list/detail render it via the shared `widgets/remote_image.dart`
+(`RemoteImage`, generalized from the recipe widget with a configurable placeholder icon). Same
+"stored URL, no upload" decision applies.
+
 ## Consequences
 
-- A recipe can carry an image set by URL and it renders in the list + detail. No server, schema,
-  or migration change was needed (the `imagePath` contract already existed end-to-end).
+- A recipe (and an inventory item) can carry an image set by URL and it renders in the list +
+  detail. For recipes no migration was needed (the `imagePath` contract already existed); for
+  inventory it was a single additive `ADD COLUMN`.
 - The user supplies a URL; there is no in-app capture/upload. **Building a LAN image-upload
   endpoint + storage (option b) is the documented follow-up** if in-app upload is wanted.
 - LAN-only / clean-slate / zero-external-dependency constraints hold; broken URLs fail safe.

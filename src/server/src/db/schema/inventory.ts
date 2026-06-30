@@ -24,6 +24,8 @@ export const inventoryItems = pgTable('inventory_items', {
   barcode: text(),
   autoAddToGrocery: boolean().notNull().default(true),
   notes: text(),
+  // Optional item photo as a stored URL (ADR-0006; reuses the recipes approach, no upload).
+  imagePath: text(),
   createdBy: uuid().references(() => householdMembers.id),
 });
 

@@ -6,7 +6,7 @@ import '../../models/auth_state.dart';
 import '../../models/recipe.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/recipe_provider.dart';
-import '../../widgets/recipe_image.dart';
+import '../../widgets/remote_image.dart';
 
 /// Recipe detail (EP-0047): metadata, an ingredient editor and a step editor (add / delete /
 /// drag-reorder, dense 1..n), plus edit/delete recipe actions — all role-gated.
@@ -200,7 +200,12 @@ class _RecipeDetailViewState extends State<RecipeDetailView> {
           const Divider(height: 24),
         ],
         if (r.imagePath != null && r.imagePath!.isNotEmpty) ...[
-          RecipeImage(path: r.imagePath, height: 180, width: double.infinity),
+          RemoteImage(
+            path: r.imagePath,
+            height: 180,
+            width: double.infinity,
+            placeholderIcon: Icons.restaurant_menu,
+          ),
           const SizedBox(height: 12),
         ],
         if (r.description != null && r.description!.isNotEmpty) ...[

@@ -216,3 +216,30 @@ describe('soft-delete + access control', () => {
     expect(Number(kidAdjust.body.result.item.quantity)).toBe(9);
   });
 });
+
+describe('item image', () => {
+  it('round-trips imagePath on create + PATCH and clears it with null', async () => {
+    const created = await call('POST', H(), {
+      token: ownerToken,
+      body: { name: 'Olive Oil', unit: 'bottle', imagePath: 'http://lan/oil.jpg' },
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.result.item.id;
+    expect(created.body.result.item.imagePath).toBe('http://lan/oil.jpg');
+
+    const got = await call('GET', `${H()}/${id}`, { token: ownerToken });
+    expect(got.body.result.item.imagePath).toBe('http://lan/oil.jpg');
+
+    const patched = await call('PATCH', `${H()}/${id}`, {
+      token: ownerToken,
+      body: { imagePath: 'http://lan/new.jpg' },
+    });
+    expect(patched.body.result.item.imagePath).toBe('http://lan/new.jpg');
+
+    const cleared = await call('PATCH', `${H()}/${id}`, {
+      token: ownerToken,
+      body: { imagePath: null },
+    });
+    expect(cleared.body.result.item.imagePath).toBeNull();
+  });
+});

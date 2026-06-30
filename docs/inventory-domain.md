@@ -9,7 +9,7 @@ per-medication `stock_quantity` concept (EP-0024).
 
 | Table | Purpose |
 |---|---|
-| `inventory_items` | Items with a running `quantity` (numeric(12,2)), unit, category, location, low-stock threshold, optional expiry, and an `auto_add_to_grocery` flag. Soft-deleted. |
+| `inventory_items` | Items with a running `quantity` (numeric(12,2)), unit, category, location, low-stock threshold, optional expiry, an `auto_add_to_grocery` flag, and an optional `image_path` (a client-rendered image URL — no upload pipeline; ADR-0006). Soft-deleted. |
 | `inventory_adjustments` | Append-only log: one row per change — `delta`, `reason`, `resulting_quantity`, `adjusted_by`. Immutable. |
 
 ## Adjustment semantics

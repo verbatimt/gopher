@@ -6,6 +6,7 @@ import '../../models/auth_state.dart';
 import '../../models/inventory.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/inventory_provider.dart';
+import '../../widgets/remote_image.dart';
 import '../../widgets/status_badge.dart';
 import 'inventory_adjust.dart';
 
@@ -150,6 +151,15 @@ class _InventoryDetailViewState extends State<InventoryDetailView> {
             ],
           ),
           const Divider(height: 24),
+        ],
+        if (item.imagePath != null && item.imagePath!.isNotEmpty) ...[
+          RemoteImage(
+            path: item.imagePath,
+            height: 180,
+            width: double.infinity,
+            placeholderIcon: Icons.inventory_2_outlined,
+          ),
+          const SizedBox(height: 12),
         ],
         Row(
           children: [

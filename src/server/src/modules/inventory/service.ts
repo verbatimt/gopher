@@ -40,6 +40,7 @@ function itemDto(i: ItemRow) {
     barcode: i.barcode,
     autoAddToGrocery: i.autoAddToGrocery,
     notes: i.notes,
+    imagePath: i.imagePath,
     isActive: i.isActive,
     isLowStock: i.lowThreshold != null && Number(i.quantity) <= Number(i.lowThreshold),
   };
@@ -106,6 +107,7 @@ export interface CreateItemInput {
   barcode?: string | null;
   autoAddToGrocery?: boolean;
   notes?: string | null;
+  imagePath?: string | null;
 }
 
 export async function createItem(ctx: ActorContext, input: CreateItemInput) {
@@ -123,6 +125,7 @@ export async function createItem(ctx: ActorContext, input: CreateItemInput) {
       barcode: input.barcode ?? null,
       autoAddToGrocery: input.autoAddToGrocery ?? true,
       notes: input.notes ?? null,
+      imagePath: input.imagePath ?? null,
       createdBy: ctx.memberId,
     })
     .returning();
@@ -193,6 +196,7 @@ export interface UpdateItemInput {
   barcode?: string | null;
   autoAddToGrocery?: boolean;
   notes?: string | null;
+  imagePath?: string | null;
 }
 
 export async function updateItem(ctx: ActorContext, itemId: string, patch: UpdateItemInput) {
@@ -208,6 +212,7 @@ export async function updateItem(ctx: ActorContext, itemId: string, patch: Updat
   if (patch.barcode !== undefined) updates.barcode = patch.barcode;
   if (patch.autoAddToGrocery !== undefined) updates.autoAddToGrocery = patch.autoAddToGrocery;
   if (patch.notes !== undefined) updates.notes = patch.notes;
+  if (patch.imagePath !== undefined) updates.imagePath = patch.imagePath;
   const [row] = await db
     .update(inventoryItems)
     .set(updates)

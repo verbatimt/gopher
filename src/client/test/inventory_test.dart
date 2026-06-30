@@ -7,11 +7,14 @@ import 'package:gopher/core/constants.dart';
 import 'package:gopher/core/storage/in_memory_token_store.dart';
 import 'package:gopher/providers/auth_provider.dart';
 import 'package:gopher/providers/inventory_provider.dart';
+import 'package:gopher/models/inventory.dart';
 import 'package:gopher/providers/module_provider.dart';
+import 'package:gopher/screens/inventory/inventory_detail_screen.dart';
 import 'package:gopher/screens/inventory/inventory_form_screen.dart';
 import 'package:gopher/screens/inventory/inventory_list_screen.dart';
 import 'package:gopher/services/auth_service.dart';
 import 'package:gopher/services/inventory_service.dart';
+import 'package:gopher/widgets/remote_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
@@ -179,6 +182,39 @@ void main() {
       expect(find.text('No adjustments yet.'), findsOneWidget);
       // The list pane is still present, so the name shows in both list and pane header.
       expect(find.text('Coffee'), findsWidgets);
+    });
+
+    testWidgets('edit form shows the image URL field prefilled', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async => http.Response('{}', 404));
+      final existing = InventoryItem.fromJson({..._item('1', 'Coffee'), 'imagePath': 'http://lan/c.jpg'});
+      await tester.pumpWidget(wrap(InventoryFormScreen(existing: existing), auth, mock));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextFormField, 'Image URL'), findsOneWidget);
+      expect(find.text('http://lan/c.jpg'), findsOneWidget);
+    });
+
+    testWidgets('detail renders the item image when set', (tester) async {
+      final auth = await authWith('supervising_user');
+      final mock = MockClient((req) async {
+        final path = req.url.path;
+        if (path == '/api/v1/households/h/inventory') {
+          return http.Response(_env({'items': [_item('1', 'Coffee')]}), 200);
+        }
+        if (path == '/api/v1/households/h/inventory/1') {
+          return http.Response(
+            _env({'item': {..._item('1', 'Coffee'), 'imagePath': 'http://lan/c.jpg'}}),
+            200,
+          );
+        }
+        if (path == '/api/v1/households/h/inventory/1/adjustments') {
+          return http.Response(_env({'adjustments': const []}), 200);
+        }
+        return http.Response('{}', 404);
+      });
+      await tester.pumpWidget(wrap(const InventoryDetailScreen(itemId: '1'), auth, mock));
+      await tester.pumpAndSettle();
+      expect(find.byType(RemoteImage), findsOneWidget);
     });
   });
 }

@@ -18,6 +18,7 @@ class InventoryItem {
   final String? barcode;
   final bool autoAddToGrocery;
   final String? notes;
+  final String? imagePath;
   final bool isActive;
   final bool isLowStock;
 
@@ -33,6 +34,7 @@ class InventoryItem {
     this.barcode,
     required this.autoAddToGrocery,
     this.notes,
+    this.imagePath,
     this.isActive = true,
     this.isLowStock = false,
   });
@@ -59,6 +61,7 @@ class InventoryItem {
         barcode: json['barcode'] as String?,
         autoAddToGrocery: json['autoAddToGrocery'] as bool? ?? true,
         notes: json['notes'] as String?,
+        imagePath: json['imagePath'] as String?,
         isActive: json['isActive'] as bool? ?? true,
         isLowStock: json['isLowStock'] as bool? ?? false,
       );
