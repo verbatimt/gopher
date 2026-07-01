@@ -14,6 +14,7 @@ Modular household OS. Stack: Bun/TypeScript API (`src/server`, Elysia + Drizzle)
 - Commit on the current branch (no auto-branch off main unless told). Subject = what changed, not why. Never a `Co-Authored-By` (or any) trailer.
 
 ## Build / test / deploy
+- Toolchain: `bun` + `make` on PATH; `flutter` is NOT on PATH — it lives at `~/flutter/bin` (`make` and `deploy.sh` fall back to it automatically).
 - Verify entrypoint: `make` (local-first, no cloud CI) — `make check` (deps+types+lint+tests), `make test`, `make server-test`, `make client-test`, `make verify` (+ image/web builds).
 - Deploy: `bash src/infra/scripts/deploy.sh` (dev → server.local). ~15 min; long quiet phase = Flutter wasm build, not a hang (watch `deploy.log` for `==> Deployment complete.`). Health: `curl http://gopher.local/health`.
 
